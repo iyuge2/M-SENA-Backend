@@ -1,0 +1,5 @@
+{
+    "python.pythonPath": "/home/iyuge2/anaconda3/envs/sena/bin/python",
+    "python.linting.pylintEnabled": true,
+    "python.linting.enabled": true
+}
