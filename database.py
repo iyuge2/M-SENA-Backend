@@ -5,6 +5,9 @@ from sqlalchemy.orm import relationship
 # from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 
+__all__ = ['Dataset', 'Dsample', 'Dfeature', 'DLClassify', 'DLRegression', \
+           'Model', 'Result', 'CLResult', 'RgResult', 'ModelSave', 'Task']
+
 class Dataset(db.Model):
     __tablename__ = "Dataset"
     # db.Column(primary_key, autoincrement, default, nullable, unique, onupdate, name)
