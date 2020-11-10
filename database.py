@@ -58,6 +58,8 @@ class Dfeature(db.Model):
 
     dataset_name = db.Column(db.String(32), primary_key=True, nullable=False)
     feature_path = db.Column(db.String(128), nullable=False)
+    input_lens = db.Column(db.String(32), nullable=False)
+    feature_dims = db.Column(db.String(32), nullable=False)
     description = db.Column(db.String(128))
 
     def __repr__(self):
