@@ -5,12 +5,6 @@ class BaseConfig(object):
     SQLALCHEMY_DATABASE_URI = os.environ['DATABASE_URL']
     SQLALCHEMY_TRACK_MODIFICATIONS = True
     JSON_AS_ASCII = False # Chinese
-    DATABASE_URL = "mysql://iyuge2:960606saandsb@localhost/sena"
-    
-    TEXT_FORMAT = ['csv']
-    AUDIO_FORMAT = ['wav', 'mp3']
-    VIDEO_FORMAT = ['mp4', 'avi', 'flv']
-
 
 class TestConfig(BaseConfig):
     DEBUG = True
