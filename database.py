@@ -49,6 +49,7 @@ class Dsample(db.Model):
     # 0 -- train, 1 -- valid, 2 -- test
     data_mode = db.Column(db.String(8), nullable=False)
     label_value = db.Column(db.Float)
+    # prediction = db.Column(db.Float)
     # -1 - unlabelled, 0 - human, 1 - machine, 2 - middle, 3 - hard
     label_by = db.Column(db.Integer, nullable=False) 
 
@@ -86,12 +87,12 @@ class Result(db.Model):
     dataset_name = db.Column(db.String(32), nullable=False)
     model_name = db.Column(db.String(32), nullable=False)
     data_mode = db.Column(db.String(8), nullable=False)
-    # tune, normal
+    # Tune, Normal
     is_tuning = db.Column(db.String(8), nullable=False)
     created_at = db.Column(db.Date, default=datetime.utcnow() + timedelta(hours=8))
     args = db.Column(db.String(MAX_ARGS_LEN), nullable=False, default="{}")
     save_model_path = db.Column(db.String(128))
-    # description = db.Column(db.String(128))
+    description = db.Column(db.String(128))
 
     def get_id(self):
         return str(self.result_id)
@@ -119,10 +120,10 @@ class Task(db.Model):
     task_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     dataset_name = db.Column(db.String(32), nullable=False)
     model_name = db.Column(db.String(32), nullable=False)
-    # 0 - 机器标注，1 - 特征预处理，2 - 模型训练，3 - 模型调参，4 - 模型测试
+    # 0 - 机器标注 1 - 模型训练，2 - 模型调参，3 - 模型测试
     task_type = db.Column(db.Integer, nullable=False)
     task_pid = db.Column(db.Integer, nullable=False)
-    # 0 -- 运行中，1 -- 已完成，2 -- 运行出错
+    # 0 -- 运行中，1 -- 已完成，2 -- 运行出错 3 -- 运行终止
     state = db.Column(db.Integer, nullable=False) 
     start_time = db.Column(db.Date, default=datetime.utcnow() + timedelta(hours=8))
     end_time = db.Column(db.Date, default=datetime.utcnow() + timedelta(hours=8))
