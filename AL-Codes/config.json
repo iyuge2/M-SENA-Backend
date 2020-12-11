@@ -1,0 +1,43 @@
+{
+    "classifiers": {
+        "TFN":{
+            "args":{
+                "use_bert": false,
+                "aligned": false,
+                "normalized": true,
+                "valid_size": 0.2,
+                "early_stop": 2,
+                "weight_decay": 0.0,
+                "hidden_dim_t": 256,
+                "hidden_dim_a": 32,
+                "hidden_dim_v": 256,
+                "text_out": 64,
+                "post_fusion_dim": 16,
+                "dropouts_a": 0.2,
+                "dropouts_v": 0.2,
+                "dropouts_t": 0.2,
+                "dropouts_f": 0.3,
+                "batch_size": 32,
+                "learning_rate": 5e-4,
+                "grad_clip": 0.0,
+                "seed": 1234,
+                "num_workers": 0,
+                "gpu_ids": [0],
+                "KeyEval": "Loss"
+            }
+        }
+    },
+    "selectors": {
+        "DEMO":{
+            "args":{}
+        }
+    },
+    "data": {
+        "DemoDataset":{
+            "label_path": "/home/iyuge2/Project/M-SENA/Datasets/DemoDataset/label.csv",
+            "feature_path": "/home/iyuge2/Project/M-SENA/Datasets/DemoDataset/features/unaligned_39.pkl",
+            "feature_dims": [768, 33, 709],
+            "num_classes": 5
+        }
+    }
+}

@@ -45,41 +45,41 @@ class Dsample(db.Model):
     video_id = db.Column(db.String(32), nullable=False)
     clip_id = db.Column(db.String(32), nullable=False)
     video_path = db.Column(db.String(128), nullable=False)
-    text = db.Column(db.String(MAX_TEXT_LEN), nullable=False)
+    text = db.Column(db.String(512), nullable=False)
     # 0 -- train, 1 -- valid, 2 -- test
     data_mode = db.Column(db.String(8), nullable=False)
     label_value = db.Column(db.Float)
-    # prediction = db.Column(db.Float)
-    # -1 - unlabelled, 0 - human, 1 - machine, 2 - middle, 3 - hard
+    annotation = db.Column(db.String(16))
+    # -1 - unlabeled, 0 - human, 1 - machine, 2 - middle, 3 - hard
     label_by = db.Column(db.Integer, nullable=False) 
 
     def __repr__(self):
         return str(self.__dict__)
 
-class Dfeature(db.Model):
-    __tablename__ = "Dfeature"
+# class Dfeature(db.Model):
+#     __tablename__ = "Dfeature"
 
-    feature_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    dataset_name = db.Column(db.String(32), nullable=False)
-    feature_path = db.Column(db.String(128), nullable=False)
-    seq_lens = db.Column(db.String(32), nullable=False)
-    feature_dims = db.Column(db.String(32), nullable=False)
-    description = db.Column(db.String(128))
+#     feature_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+#     dataset_name = db.Column(db.String(32), nullable=False)
+#     feature_path = db.Column(db.String(128), nullable=False)
+#     seq_lens = db.Column(db.String(32), nullable=False)
+#     feature_dims = db.Column(db.String(32), nullable=False)
+#     description = db.Column(db.String(128))
 
-    def __repr__(self):
-        return str(self.__dict__)
+#     def __repr__(self):
+#         return str(self.__dict__)
 
-class Model(db.Model):
-    __tablename__ = "Model"
-    # model_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    model_name = db.Column(db.String(32), primary_key=True, nullable=False)
-    args = db.Column(db.String(MAX_ARGS_LEN), nullable=False, default="{}")
-    paper_name = db.Column(db.String(128))
-    paper_url = db.Column(db.String(128))
-    description = db.Column(db.String(128))
+# class Model(db.Model):
+#     __tablename__ = "Model"
+#     # model_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+#     model_name = db.Column(db.String(32), primary_key=True, nullable=False)
+#     args = db.Column(db.String(MAX_ARGS_LEN), nullable=False, default="{}")
+#     paper_name = db.Column(db.String(128))
+#     paper_url = db.Column(db.String(128))
+#     description = db.Column(db.String(128))
 
-    def __repr__(self):
-        return str(self.__dict__)
+#     def __repr__(self):
+#         return str(self.__dict__)
 
 class Result(db.Model):
     __tablename__ = "Result"
