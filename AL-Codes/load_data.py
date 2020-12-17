@@ -128,8 +128,8 @@ class MMDataset(Dataset):
 def MMDataLoader(args):
     if args.use_db:
         samples = db.session.query(Dsample).filter_by(dataset_name=args.datasetName)
-        train_samples = samples.filter(or_(label_by==0, label_by==1)).all()
-        test_samples = samples.filter(or_(label_by==-1, label_by==2, label_by==3)).all() 
+        train_samples = samples.filter(or_(Dsample.label_by==0, Dsample.label_by==1)).all()
+        test_samples = samples.filter(or_(Dsample.label_by==-1, Dsample.label_by==2, Dsample.label_by==3)).all() 
 
         train_samples = [[sample.video_id, sample.clip_id] for sample in train_samples]
         test_samples = [[sample.video_id, sample.clip_id] for sample in test_samples]

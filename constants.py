@@ -11,18 +11,14 @@ MAX_ARGS_LEN = 1024 # max length of model parameters (string)
 TRAIN_MODE = 0
 VALID_MODE = 1
 TEST_MODE = 2
-SUPPORT_FORMAT = {
-    'text_format': ['csv'],
-    'audio_format': ['wav', 'mp3'],
-    'video_format': ['mp4', 'avi', 'flv'],
-}
-LABEL_NAME_N2I = {"Neutral": 0, "Negative": 1, "Positive": 2}
-LABEL_NAME_I2N = {0: "Neutral", 1: "Negative", 2: "Positive"}
+LABEL_NAME_N2I = {"Neutral": 0, "Negative": 1, "Weakly Negative": 2, "Positive": 3, "Weakly Positive": 4}
+LABEL_NAME_I2N = {0: "Neutral", 1: "Negative", 2: "Weakly Negative", 3: "Positive", 4: "Weakly Positive"}
 LABEL_BY_N2I = {"Unlabeled": -1, "Human": 0, "Machine": 1, "Middle": 2, "Hard": 3}
 LABEL_BY_I2N = {-1: "Unlabeled", 0: "Human", 1: "Machine", 2: "Middle", 3: "Hard"}
+MANUAL_LABEL_BATCH_SIZE = 2
 
 # MODEL-END
-CODE_PATH = 'M-Codes'
+MM_CODES_PATH = 'M-Codes'
 MODEL_TMP_SAVE = 'M-Codes/results/model_tmp_saves'
 MODEL_FINAL_SAVE = 'M-Codes/results/model_final_saves'
 AL_CODES_PATH = 'AL-Codes'
@@ -30,4 +26,3 @@ AL_CODES_PATH = 'AL-Codes'
 MAX_TEXT_SEQ_LEN = 20
 MAX_VIDEO_SEQ_LEN = 50
 MAX_AUDIO_SEQ_LEN = 50
-

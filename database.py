@@ -17,26 +17,26 @@ app = Flask(__name__)
 app.config.from_object(os.environ['APP_SETTINGS'])
 db = SQLAlchemy(app)
 
-class Dataset(db.Model):
-    __tablename__ = "Dataset"
-    # db.Column(primary_key, autoincrement, default, nullable, unique, onupdate, name)
-    # dataset_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    dataset_name = db.Column(db.String(32), primary_key=True, nullable=False)
-    dataset_path = db.Column(db.String(128), nullable=False)
-    language = db.Column(db.String(16), nullable=False, default="EN")
-    label_path = db.Column(db.String(32), nullable=False)
-    text_format = db.Column(db.String(8), nullable=False, default='txt')
-    audio_format = db.Column(db.String(8), nullable=False, default='wav')
-    video_format = db.Column(db.String(8), nullable=False, default='mp4')
-    raw_video_dir = db.Column(db.String(64), nullable=False)
-    audio_dir = db.Column(db.String(64), nullable=False)
-    faces_dir = db.Column(db.String(64), nullable=False)
-    has_feature = db.Column(db.Boolean, nullable=False, default=False)
-    is_locked = db.Column(db.Boolean, nullable=False, default=False)
-    description = db.Column(db.String(128))
+# class Dataset(db.Model):
+#     __tablename__ = "Dataset"
+#     # db.Column(primary_key, autoincrement, default, nullable, unique, onupdate, name)
+#     # dataset_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+#     dataset_name = db.Column(db.String(32), primary_key=True, nullable=False)
+#     dataset_path = db.Column(db.String(128), nullable=False)
+#     language = db.Column(db.String(16), nullable=False, default="EN")
+#     label_path = db.Column(db.String(32), nullable=False)
+#     text_format = db.Column(db.String(8), nullable=False, default='txt')
+#     audio_format = db.Column(db.String(8), nullable=False, default='wav')
+#     video_format = db.Column(db.String(8), nullable=False, default='mp4')
+#     raw_video_dir = db.Column(db.String(64), nullable=False)
+#     audio_dir = db.Column(db.String(64), nullable=False)
+#     faces_dir = db.Column(db.String(64), nullable=False)
+#     has_feature = db.Column(db.Boolean, nullable=False, default=False)
+#     is_locked = db.Column(db.Boolean, nullable=False, default=False)
+#     description = db.Column(db.String(128))
 
-    def __repr__(self):
-        return str(self.__dict__)
+#     def __repr__(self):
+#         return str(self.__dict__)
 
 class Dsample(db.Model):
     __tablename__ = "Dsample"

@@ -10,6 +10,7 @@ from flask_cors import CORS, cross_origin
 from flask_sqlalchemy import SQLAlchemy
 from flask_uploads import UploadSet, configure_uploads
 from sqlalchemy.orm import load_only
+from sqlalchemy import or_, and_, not_
 from tqdm import tqdm
 
 from config import BaseConfig
@@ -54,65 +55,24 @@ TEST
 """
 Data-End
 """
-@app.route('/dataEnd/addDataset', methods=['POST'])
-def add_dataset():
-    data = json.loads(request.get_data())
-    print(data)
-    path = data['datasetPath']
-    data_config_path = os.path.join(path, 'config.json')
-    if not os.path.exists(data_config_path):
-        return {"code": ERROR_CODE, "msg": data_config_path + " is not exist!"}
-
-    with open(data_config_path, 'r') as f:
-        dataset_config = json.loads(f.read())
-
-    # check dataset name
-    dataset_name = dataset_config['name']
-    names = db.session.query(Dataset).filter_by(dataset_name=dataset_name).first()
-    if names:
-        return {"code": WARNING_CODE, "msg": dataset_name + " has existed!"}
-    try:
-        # check data format
-        for d_type in ['text_format', 'audio_format', 'video_format']:
-            if dataset_config[d_type] not in SUPPORT_FORMAT[d_type]:
-                return {"code": ERROR_CODE, "msg": "Error format in " + d_type + '. Only ' + \
-                            '/'.join(SUPPORT_FORMAT[d_type]) + ' support'}
-
-        has_feature = len(dataset_config['features']) > 0
-        # add new dataset to database
-        payload = Dataset(
-            dataset_name=dataset_name,
-            dataset_path=path,
-            language=dataset_config['language'],
-            label_path=dataset_config['label_path'],
-            text_format=dataset_config['text_format'],
-            audio_format=dataset_config['audio_format'],
-            video_format=dataset_config['video_format'],
-            raw_video_dir=dataset_config['raw_video_dir'],
-            audio_dir=dataset_config['audio_dir'],
-            faces_dir=dataset_config['faces_dir'],
-            has_feature=has_feature,
-            is_locked=dataset_config['is_locked'],
-            description=dataset_config['description'] if 'description' in dataset_config else ""
-        )
-        db.session.add(payload)
-
+@app.route('/dataEnd/scanDatasets', methods=['GET'])
+def scan_datasets():
+    with open(os.path.join(DATASET_ROOT_DIR, 'config.json'), 'r') as fp:
+        dataset_config = json.load(fp)
+    
+    for dataset_name, configs in dataset_config.items():
+        db.session.query(Dsample).filter_by(dataset_name=dataset_name).delete()
         # scan dataset for sample table
-        label_path, raw_path = dataset_config['label_path'], dataset_config['raw_video_dir']
-
-        label_df = pd.read_csv(os.path.join(path, label_path), 
+        label_df = pd.read_csv(os.path.join(DATASET_ROOT_DIR, configs['label_path']), 
                                 dtype={"video_id": "str", "clip_id": "str", "text": "str"})
 
         for i in tqdm(range(len(label_df))):
-            video_id, clip_id, text, label, annotation, mode = \
-                label_df.loc[i, ['video_id', 'clip_id', 'text', 'label', 'annotation', 'mode']]
+            video_id, clip_id, text, label, annotation, mode, label_by = \
+                label_df.loc[i, ['video_id', 'clip_id', 'text', 'label', 'annotation', 'mode', 'label_by']]
             
-            m_by = 0 if label != -100 else -1
-
-            cur_video_path = os.path.join(dataset_config['path'], raw_path, str(video_id), \
-                                        str(clip_id)+"." + dataset_config['video_format'])
+            cur_video_path = os.path.join(configs['raw_video_dir'], video_id, \
+                                            clip_id+"." + configs['video_format'])
             # print(video_id, clip_id, text, label, annotation, mode)
-
             payload = Dsample(
                 dataset_name=dataset_name,
                 video_id=video_id,
@@ -122,30 +82,12 @@ def add_dataset():
                 data_mode=mode,
                 label_value=label,
                 annotation=annotation,
-                label_by=m_by
+                label_by=label_by
             )
             db.session.add(payload)
 
         db.session.commit()
-    except Exception as e:
-        # print(e)
-        return {"code": ERROR_CODE, "msg": str(e)}
     return {"code": SUCCESS_CODE, "msg": "success"}
-
-@app.route('/dataEnd/deleteDataset', methods=['POST'])
-def delete_dataset():
-    dataset_name = json.loads(request.get_data())['datasetName']
-    try:
-        cur_dataset = db.session.query(Dataset).get(dataset_name)
-        # delete samples
-        db.session.query(Dsample).filter_by(dataset_name=cur_dataset.dataset_name).delete()
-        db.session.delete(cur_dataset)
-        db.session.commit()
-    except Exception as e:
-        return {"code": ERROR_CODE, "msg": str(e)}
-    
-    return {"code": SUCCESS_CODE, "msg": 'success'}
-
 
 @app.route('/dataEnd/getDatasetList', methods=['POST'])
 def get_datasets_info():
@@ -153,21 +95,22 @@ def get_datasets_info():
     page,pageSize = data['pageNo'], data['pageSize']
 
     # print(page, pageSize)
-    datasets = db.session.query(Dataset)
+    with open(os.path.join(DATASET_ROOT_DIR, 'config.json'), 'r') as fp:
+        dataset_config = json.load(fp)
 
-    if data['unlocked']:
-        datasets = datasets.filter_by(is_locked=False).all()
-    else:
-        datasets = datasets.all()
-
-    print(datasets)
     res = []
-    for dataset in datasets:
-        samples = db.session.query(Dsample.dataset_name).filter_by(dataset_name=dataset.dataset_name).all()
-        p = dataset.__dict__.copy()
-        p.pop('_sa_instance_state', None)
-        p['capacity'] = len(samples)
-        res.append(p)
+    for k, dataset in dataset_config.items():
+        p = {}
+        print(dataset)
+        if data['unlocked'] == False or \
+            (data['unlocked'] and dataset['is_locked'] == False):
+            p['datasetName'] = k
+            p['status'] = 'locked' if dataset['is_locked'] else 'unlocked'
+            p['language'] = dataset['language']
+            p['description'] = dataset['description']
+            samples = db.session.query(Dsample.dataset_name).filter_by(dataset_name=k).all()
+            p['capacity'] = len(samples)
+            res.append(p)
 
     totolCount = len(res)
     start_i = (page - 1) * pageSize
@@ -182,37 +125,48 @@ def get_datasets_info():
 def get_meta_data():
     dataset_name = json.loads(request.get_data())['datasetName']
 
-    datasets = db.session.query(Dataset).get(dataset_name)
-    res = datasets.__dict__.copy()
-    res.pop('_sa_instance_state', None)
+    # print(page, pageSize)
+    with open(os.path.join(DATASET_ROOT_DIR, 'config.json'), 'r') as fp:
+        dataset = json.load(fp)[dataset_name]
 
-    samples = db.session.query(Dsample).filter_by(dataset_name=dataset_name)
-    res['unlabelled'] = len(samples.filter_by(label_by=-1).all())
-    res['human'] = len(samples.filter_by(label_by=0).all())
-    res['easy'] = len(samples.filter_by(label_by=1).all())
-    res['medium'] = len(samples.filter_by(label_by=2).all())
-    res['hard'] = len(samples.filter_by(label_by=3).all())
-    res['totalCount'] = len(samples.all())
+    res = {} 
+    res['datasetName'] = dataset_name
+    res['status'] = 'locked' if dataset['is_locked'] else 'unlocked'
+    res['language'] = dataset['language']
+    res['description'] = dataset['description']
+
+    samples = db.session.query(Dsample).filter_by(dataset_name=dataset_name).all()
+    
+    res['totalCount'] = len(samples)
+
+    label_bys = [sample.label_by for sample in samples]
+    label_bys = Counter(label_bys)
+    tmp = {}
+    for k,v in label_bys.items():
+        tmp[LABEL_BY_I2N[k]] = v
+    res['difficultyCount'] = tmp
 
     annotations = [sample.annotation for sample in samples]
     res['classCount'] = Counter(annotations)
+
+    modes = [sample.data_mode for sample in samples]
+    res['typeCount'] = Counter(modes)
     
     return {"code": SUCCESS_CODE, "msg": "success", "data": res}
-
+    
 @app.route('/dataEnd/getDetails', methods=['POST'])
 def get_dataset_details():
     data = json.loads(request.get_data())
     dataset_name = data['datasetName']
     page,pageSize = data['pageNo'], data['pageSize']
-    print(data)
 
     samples = db.session.query(Dsample).filter_by(dataset_name=data['datasetName'])
-    if data['difficulty'] != 'All':
-        samples = samples.filter_by(model_name=data['model_name'])
+    if data['difficulty_filter'] != 'All':
+        samples = samples.filter_by(label_by=LABEL_BY_N2I[data['difficulty_filter']])
     if data['sentiment_filter'] != 'All':
-        samples = samples.filter_by(annotation=LABEL_BY_N2I[data['sentiment']])
+        samples = samples.filter_by(annotation=data['sentiment_filter'])
     if data['data_mode_filter'] != 'All':
-        samples = samples.filter_by(data_mode=data['data_mode'])
+        samples = samples.filter_by(data_mode=data['data_mode_filter'])
 
     samples = samples.all()
 
@@ -220,11 +174,9 @@ def get_dataset_details():
     for sample in samples:
         p = sample.__dict__.copy()
         p.pop('_sa_instance_state', None)
-        if p['label_by'] == 0:
-            p['manualLabel'] = p['label_value']
-        else:
-            p['manualLabel'] = '-'
-        # p['video_path'] = os.path.join(DATASET_SERVER_IP, p['video_path'])
+        p['manualLabel'] = LABEL_NAME_I2N[p['label_value']] if p['label_by'] == 0 else '-'
+        p['prediction'] = LABEL_NAME_I2N[p['label_value']] if p['label_by'] != 0 else '-'
+        p['video_url'] = os.path.join(DATASET_SERVER_IP, p['video_path'])
         ret.append(p)
 
     totolCount = len(ret)
@@ -236,32 +188,38 @@ def get_dataset_details():
 
     return {"code": SUCCESS_CODE, "msg": "success", "data": ret, "totalCount": totolCount}
 
-@app.route('/dataEnd/getVideoInfoByID', methods=['POST'])
-def get_clip_video():
-    sample_id = json.loads(request.get_data())['sample_id']
-    sample = db.session.query(Dsample).get(sample_id)
-    res = {
-        'video_url': os.path.join(DATASET_SERVER_IP, sample.video_path),
-    }
+# @app.route('/dataEnd/getVideoInfoByID', methods=['POST'])
+# def get_clip_video():
+#     sample_id = json.loads(request.get_data())['sample_id']
+#     sample = db.session.query(Dsample).get(sample_id)
 
-    return {"code": SUCCESS_CODE, "msg": 'success', 'data': res}
+#     res = {
+#         'video_url': os.path.join(DATASET_SERVER_IP, sample.video_path)
+#     }
+
+#     return {"code": SUCCESS_CODE, "msg": 'success', 'data': res}
 
 @app.route('/dataEnd/unlockDataset', methods=["POST"])
 def unlock_dataset():
-    print('test')
-    dataset_name = json.loads(request.get_data())['dataset_name']
-    dataset = db.session.query(Dataset).get(dataset_name)
-    dataset.is_locked = False
-    db.session.commit()
+    dataset_name = json.loads(request.get_data())['datasetName']
+    with open(os.path.join(DATASET_ROOT_DIR, 'config.json'), 'r') as fp:
+        dataset_config = json.load(fp)
+    dataset_config[dataset_name]['is_locked'] = False
+
+    with open(os.path.join(DATASET_ROOT_DIR, 'config.json'), 'w') as fp:
+        json.dump(dataset_config, fp, indent=4)
 
     return {"code": SUCCESS_CODE, "msg": 'success'}
 
 @app.route('/dataEnd/lockDataset', methods=["POST"])
 def lock_dataset():
-    dataset_name = json.loads(request.get_data())['dataset_name']
-    dataset = db.session.query(Dataset).get(dataset_name)
-    dataset.is_locked = True
-    db.session.commit()
+    dataset_name = json.loads(request.get_data())['datasetName']
+    with open(os.path.join(DATASET_ROOT_DIR, 'config.json'), 'r') as fp:
+        dataset_config = json.load(fp)
+    dataset_config[dataset_name]['is_locked'] = True
+
+    with open(os.path.join(DATASET_ROOT_DIR, 'config.json'), 'w') as fp:
+        json.dump(dataset_config, fp, indent=4)
 
     return {"code": SUCCESS_CODE, "msg": 'success'}
 
@@ -271,27 +229,40 @@ DATA-Labeling
 @app.route('/dataEnd/submitLabelResult', methods=["POST"])
 def update_label():
     results = json.loads(request.get_data())['resultList']
+    print(results)
     for res in results:
-        sample = db.session.query(Dsample).get(res['sampleId'])
-        sample.label_value = LABEL_NAME_N2I[res['result']]
-        sample.annotation = res['result']
+        if res['annotation'] in LABEL_NAME_N2I.keys():
+            sample = db.session.query(Dsample).get(res['sample_id'])
+            sample.label_value = LABEL_NAME_N2I[res['annotation']]
+            sample.annotation = res['annotation']
+            sample.label_by = 0
     db.session.commit()
     return {"code": SUCCESS_CODE, "msg": 'success'}
 
-@app.route('/dataEnd/getNextSampleId', methods=["POST"])
-def get_unlabeled_sample():
+@app.route('/dataEnd/getHardSamples', methods=["POST"])
+def get_hard_samples():
     datasetName = json.loads(request.get_data())['datasetName']
-    sample = db.session.query(Dsample).filter_by(dataset_name=datasetName).first()
-    if sample:
-        return {"code": SUCCESS_CODE, "msg": 'success', "nextVideoSampleId": sample.sample_id}
-    else:
-        return {"code": WARNING_CODE, "msg": "Completed!"}
+    samples = db.session.query(Dsample).filter_by(dataset_name=datasetName).filter(or_(Dsample.label_by==-1, Dsample.label_by==2, Dsample.label_by==3)).all()
+    if len(samples) > MANUAL_LABEL_BATCH_SIZE:
+        samples = samples[:MANUAL_LABEL_BATCH_SIZE]
+    print(len(samples))
 
-@app.route('/dataEnd/getVideoLabelInfoById', methods=["POST"])
-def get_video_url():
-    sampleId = json.loads(request.get_data())['sampleId']
-    sample = db.session.query(Dsample).get(sampleId)
-    return {"code": SUCCESS_CODE, "msg": 'success', "text": sample.text, "videoUrl": sample.video_path}
+    data = []
+    for sample in samples:
+        cur_d = {
+            "sample_id": sample.sample_id,
+            "text": sample.text,
+            "video_url": os.path.join(DATASET_SERVER_IP, sample.video_path),
+            "annotation": ''
+        }
+        data.append(cur_d)
+    return {"code": SUCCESS_CODE, "msg": 'success', "data": data}
+
+# @app.route('/dataEnd/getVideoLabelInfoById', methods=["POST"])
+# def get_video_url():
+#     sampleId = json.loads(request.get_data())['sampleId']
+#     sample = db.session.query(Dsample).get(sampleId)
+#     return {"code": SUCCESS_CODE, "msg": 'success', "text": sample.text, "videoUrl": sample.video_path}
 
 @app.route('/dataEnd/startActiveLearning', methods=["POST"])
 def run_activeLearning():
@@ -306,18 +277,16 @@ def run_activeLearning():
     )
 
     db.session.add(payload)
-    db.session.flush()
-    task_id = payload.task_id
     db.session.commit()
+    task_id = payload.task_id
+    # db.session.commit()
 
     cmd_page = [
         'python', os.path.join(AL_CODES_PATH, 'run.py'),
-        '--use_db', True,
+        '--use_db', 'True',
         '--classifier', data['classifier'],
         '--selector', data['selector'],
         '--datasetName', data['datasetName'],
-        '--classifier_parameters', data['classifier_parameters'],
-        '--selector_parameters', data['selector_parameters'],
         '--task_id', str(task_id)
     ]
     p = subprocess.Popen(cmd_page, close_fds=True)
@@ -350,12 +319,40 @@ def get_selector_config():
         config = json.load(fp)["selectors"][selector_name]
     return {"code": SUCCESS_CODE, "msg": "success", "args": json.dumps(config['args'])}
 
+@app.route('/dataEnd/saveClassifierConfig', methods=['POST'])
+def save_classifier_config():
+    data = json.loads(request.get_data())
+    with open(os.path.join(AL_CODES_PATH, 'config.json'), 'r') as fp:
+        config = json.load(fp)
+    config['classifiers'][data['classifier']]['args'] = json.loads(data['args'])
+    with open(os.path.join(AL_CODES_PATH, 'config.json'), 'w') as fp:
+        config = json.dump(config, fp, indent=4)
+
+    return {"code": SUCCESS_CODE, "msg": 'success'}
+
+@app.route('/dataEnd/saveSelectorConfig', methods=['POST'])
+def save_selector_config():
+    data = json.loads(request.get_data())
+    with open(os.path.join(AL_CODES_PATH, 'config.json'), 'r') as fp:
+        config = json.load(fp)
+    config['selectors'][data['selector']]['args'] = json.loads(data['args'])
+    with open(os.path.join(AL_CODES_PATH, 'config.json'), 'w') as fp:
+        config = json.dump(config, fp, indent=4)
+
+    return {"code": SUCCESS_CODE, "msg": 'success'}
+
+@app.route('/dataEnd/exportDataset', methods=['POST'])
+def export_dataset():
+    dataset_name = json.loads(request.get_data())['datasetName']
+    print(dataset_name)
+    return {"code": SUCCESS_CODE, "msg": 'success'}
+
 """
 Model-End
 """
 @app.route('/modelEnd/modelList', methods=['GET'])
 def get_model_list():
-    with open(os.path.join(CODE_PATH, 'config.json'), 'r') as fp:
+    with open(os.path.join(MM_CODES_PATH, 'config.json'), 'r') as fp:
         config = json.load(fp)["MODELS"]
     res = []
     for name, items in config.items():
@@ -380,12 +377,13 @@ def train_model():
     )
 
     db.session.add(payload)
-    db.session.flush()
-    task_id = payload.task_id
+    # db.session.flush()
     db.session.commit()
+    task_id = payload.task_id
+    # db.session.commit()
 
     cmd_page = [
-        'python', os.path.join(CODE_PATH, 'run.py'),
+        'python', os.path.join(MM_CODES_PATH, 'run.py'),
         '--run_mode', data['mode'],
         '--modelName', data['model'],
         '--datasetName', data['dataset'],
@@ -403,19 +401,21 @@ def train_model():
 
 @app.route('/settings/getAllSettings', methods=['GET'])
 def get_settings():
-    with open(os.path.join(CODE_PATH, 'config.json'), 'r') as fp:
+    with open(os.path.join(MM_CODES_PATH, 'config.json'), 'r') as fp:
         config = json.load(fp)["MODELS"]
         model_names = list(config.keys())
 
-    datasets = db.session.query(Dataset).all()
+    with open(os.path.join(DATASET_ROOT_DIR, 'config.json'), 'r') as fp:
+        dataset_config = json.load(fp)
+        dataset_names = list(config.keys())
+
     ret_datas = [] 
-    for dataset in datasets:
+    for k, dataset in dataset_config.keys():
         cur_data = {}
-        cur_data["name"] = dataset.dataset_name
-        label_path = os.path.join(dataset.dataset_path, dataset.label_path)
-        df = pd.read_csv(label_path)
-        cur_data['sentiments'] = list(set(df['annotation'].values))
+        cur_data['name'] = k
+        cur_data['sentiments'] = [v for k, v in dataset['annotations'].items()]
         ret_datas.append(cur_data)
+
     return {"code": SUCCESS_CODE, "msg": 'success', "models": model_names, \
             "datasets": ret_datas}
 
@@ -461,7 +461,7 @@ def get_results():
 @app.route('/modelEnd/getArgs', methods=['POST'])
 def get_args():
     model_name = json.loads(request.get_data())['model']
-    with open(os.path.join(CODE_PATH, 'config.json'), 'r') as fp:
+    with open(os.path.join(MM_CODES_PATH, 'config.json'), 'r') as fp:
         config = json.load(fp)["MODELS"]
     args = config[model_name]['args']
     return {"code": SUCCESS_CODE, "msg": 'success', "args":json.dumps(args)}
@@ -471,10 +471,10 @@ def set_default_args():
     result_id = json.loads(request.get_data())['id']
     cur_result = db.session.query(Result).get(result_id)
     # revise config.json in model codes
-    with open(os.path.join(CODE_PATH, 'config.json'), 'r') as f:
+    with open(os.path.join(MM_CODES_PATH, 'config.json'), 'r') as f:
         model_config = json.load(f)
     model_config[cur_result.model_name]['args'] = cur_result.args
-    with open(os.path.join(CODE_PATH, 'config.json'), 'w') as f:
+    with open(os.path.join(MM_CODES_PATH, 'config.json'), 'w') as f:
         json.dumps(model_config, f, indent=4)
 
     return {"code": SUCCESS_CODE, "msg": 'success'}
@@ -499,7 +499,21 @@ Test-End
 @app.route('/presentatinEnd/batchResults', methods=['POST'])
 def batch_test():
     data = json.loads(request.get_data())
+    
+    model_names = data['other']
 
+@app.route('/presentationEnd/sampleResults', methods=['POST'])
+def get_sample_results():
+    pass
+
+@app.route('/presentationEnd/liveTranscript', methods=['POST'])
+def get_live_transcript():
+    res = "hello mesa"
+    return {"code": SUCCESS_CODE, "msg": "success", "transcript": res}
+
+@app.route('/presentation/liveResults', methods=['POST'])
+def get_live_results():
+    pass
 
 """
 Tasks

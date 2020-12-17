@@ -30,12 +30,11 @@ def setup_seed(seed):
     random.seed(seed)
     torch.backends.cudnn.deterministic = True
 
-def run():
-    args = parse_args()
-    args.model_save_path = os.path.join(os.path.dirname(__file__), 'save_models', \
+def run(args):
+    args.model_save_path = os.path.join(AL_CODES_PATH, 'save_models', \
                             f'{args.classifier}-{args.selector}-{args.datasetName}.pth')
     # load parameters
-    with open(os.path.join(os.path.dirname(__file__), 'config.json'), 'r') as f:
+    with open(os.path.join(AL_CODES_PATH, 'config.json'), 'r') as f:
         config = json.load(f)
         classifier_config = config['classifiers'][args.classifier]['args']
         selector_config = config['selectors'][args.selector]['args']
@@ -83,7 +82,8 @@ def run():
     if args.use_db:
         for k in ['simple', 'middle', 'hard']:
             ids, predicts = results[k]
-            for i in range(ids.shape(0)):
+            print(ids)
+            for i in range(len(ids)):
                 video_id, clip_id = ids[i].split('-')
                 sample = db.session.query(Dsample).filter_by(dataset_name=args.datasetName, \
                                         video_id=video_id, clip_id=clip_id).first()
@@ -94,14 +94,22 @@ def run():
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--use_db', type=bool, default=False)
-    parser.add_argument('--classifier', type=str, default='TFN',
-                        help='support TFN')
-    parser.add_argument('--selector', type=str, default='DEMO',
-                        help='support DEMO')
-    parser.add_argument('--datasetName', type=str, default='DemoDataset',
-                        help='support DemoDataset')
-    parser.add_argument('--task_id', type=int)
+    parser.add_argument('--classifier', type=str, default='TFN')
+    parser.add_argument('--selector', type=str, default='DEMO')
+    parser.add_argument('--datasetName', type=str, default='DemoDataset')
+    parser.add_argument('--task_id', type=int, default=0)
     return parser.parse_args()
 
 if __name__ == "__main__":
-    run()
+    args = parse_args()
+    try:
+        run(args)
+        if args.use_db:
+            cur_task = db.session.query(Task).get(args.task_id)
+            cur_task.state = 1
+    except Exception as e:
+        if args.use_db:
+            cur_task.state = 2
+    finally:
+        if args.use_db:
+            db.session.commit()
