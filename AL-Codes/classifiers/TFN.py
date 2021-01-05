@@ -138,8 +138,9 @@ class SubNet(nn.Module):
         Args:
             x: tensor of shape (batch_size, in_size)
         '''
-        normed = self.norm(x)
-        dropped = self.drop(normed)
+        if x.size(0) > 1:
+            x = self.norm(x)
+        dropped = self.drop(x)
         y_1 = F.relu(self.linear_1(dropped))
         y_2 = F.relu(self.linear_2(y_1))
         y_3 = F.relu(self.linear_3(y_2))

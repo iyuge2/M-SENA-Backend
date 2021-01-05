@@ -6,7 +6,7 @@
                 "aligned": false,
                 "normalized": true,
                 "valid_size": 0.2,
-                "early_stop": 2,
+                "early_stop": 8,
                 "weight_decay": 0,
                 "hidden_dim_t": 256,
                 "hidden_dim_a": 32,

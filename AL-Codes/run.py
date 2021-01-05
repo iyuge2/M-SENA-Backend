@@ -82,7 +82,7 @@ def run(args):
     if args.use_db:
         for k in ['simple', 'middle', 'hard']:
             ids, predicts = results[k]
-            print(ids)
+            # print(ids)
             for i in range(len(ids)):
                 video_id, clip_id = ids[i].split('-')
                 sample = db.session.query(Dsample).filter_by(dataset_name=args.datasetName, \
@@ -93,7 +93,7 @@ def run(args):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--use_db', type=bool, default=False)
+    parser.add_argument('--use_db', type=bool, default=True)
     parser.add_argument('--classifier', type=str, default='TFN')
     parser.add_argument('--selector', type=str, default='DEMO')
     parser.add_argument('--datasetName', type=str, default='DemoDataset')
@@ -109,6 +109,7 @@ if __name__ == "__main__":
             cur_task.state = 1
     except Exception as e:
         if args.use_db:
+            cur_task = db.session.query(Task).get(args.task_id)
             cur_task.state = 2
     finally:
         if args.use_db:
