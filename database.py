@@ -43,7 +43,7 @@ class Result(db.Model):
     model_name = db.Column(db.String(32), nullable=False)
     # Tune, Normal
     is_tuning = db.Column(db.String(8), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow())
+    created_at = db.Column(db.DateTime, default=datetime.utcnow() + timedelta(hours=8))
     args = db.Column(db.String(MAX_ARGS_LEN), nullable=False, default="{}")
     save_model_path = db.Column(db.String(128))
     # final test results
@@ -89,8 +89,8 @@ class Task(db.Model):
     task_pid = db.Column(db.Integer, nullable=False)
     # 0 -- 运行中，1 -- 已完成，2 -- 运行出错 3 -- 运行终止
     state = db.Column(db.Integer, nullable=False) 
-    start_time = db.Column(db.DateTime, default=datetime.utcnow())
-    end_time = db.Column(db.DateTime, default=datetime.utcnow())
+    start_time = db.Column(db.DateTime, default=datetime.utcnow() + timedelta(hours=8))
+    end_time = db.Column(db.DateTime, default=datetime.utcnow() + timedelta(hours=8))
     message = db.Column(db.String(32))
 
     def __repr__(self):

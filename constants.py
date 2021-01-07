@@ -21,6 +21,10 @@ MANUAL_LABEL_BATCH_SIZE = 16
 MM_CODES_PATH = '/home/iyuge2/Project/M-SENA/M-SENA-Backend/M-Codes'
 MODEL_TMP_SAVE = '/home/iyuge2/Project/M-SENA/M-SENA-Backend/M-Codes/results'
 AL_CODES_PATH = '/home/iyuge2/Project/M-SENA/M-SENA-Backend/AL-Codes'
+
+# ANALYSIS-END
+LIVE_TMP_PATH = '/home/iyuge2/Project/M-SENA/M-SENA-Backend/M-Codes/tmp_dir'
+
 # limit sequence length
 MAX_TEXT_SEQ_LEN = 20
 MAX_VIDEO_SEQ_LEN = 50
