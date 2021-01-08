@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import time
 import pickle
@@ -22,6 +23,11 @@ from tqdm import tqdm
 from constants import *
 from database import *
 from httpServer import run_http_server
+
+if MM_CODES_PATH not in sys.path:
+    sys.path.insert(0, MM_CODES_PATH)
+
+from run_live import run_live
 
 # session.clear()
 app = Flask(__name__)
@@ -601,11 +607,10 @@ def get_sample_details():
             return {"code": ERROR_CODE, "msg": 'page error!'}
         end_i = (start_i + pageSize) if (start_i + pageSize) <= totolCount else totolCount
         ret = ret[start_i:end_i]
-        totalCount = 0
     except Exception as e:
         print(e)
         return {"code": ERROR_CODE, "msg": str(e)}
-    return {"code": SUCCESS_CODE, "msg": 'success', "totalCount": totalCount, "results": ret}
+    return {"code": SUCCESS_CODE, "msg": 'success', "totalCount": totolCount, "results": ret}
 
 @app.route('/analysisEnd/delResult', methods=['POST'])
 def del_results():
@@ -623,6 +628,9 @@ def del_results():
             e_results = db.session.query(EResult).filter_by(result_id=result_id).all()
             for e_result in e_results:
                 db.session.delete(e_result)
+            s_results = db.session.query(SResults).filter_by(result_id=result_id).all()
+            for s_result in s_results:
+                db.session.delete(s_result)
             db.session.commit()
     except Exception as e:
         return {"code": ERROR_CODE, "msg": str(e)}
@@ -633,52 +641,63 @@ def batch_test():
     try:
         data = json.loads(request.get_data())
         models = [data['primary']] + data['other']
+        mode = data['mode'].lower()
         results = []
         for model in models:
             result_id = int(model.split('-')[-1])
             e_result = db.session.query(EResult).filter_by(result_id=result_id, epoch_num=-1).first()
-            cur_result = {
-                "model": model,
-                "acc2": e_result.accuracy,
-                "acc2Delta": 0.0,
-                "f1": e_result.f1,
-                "f1Delta": 0.0,
-            }
-            if len(results) >= 1:
-                for k in ['acc2', 'f1']:
-                    cur_result[k + 'Delta'] = results[0][k] - cur_result[k]
-            results.append(cur_result)
+            if e_result:
+                e_res = json.loads(e_result.results)
+                cur_result = {
+                    "model": model,
+                    "acc2": e_res[mode]['accuracy'],
+                    "acc2Delta": 0.0,
+                    "f1": e_res[mode]['accuracy'],
+                    "f1Delta": 0.0,
+                }
+                if len(results) >= 1:
+                    for k in ['acc2', 'f1']:
+                        cur_result[k + 'Delta'] = results[0][k] - cur_result[k]
+                results.append(cur_result)
     except Exception as e:
+        print(e)
         return {"code": ERROR_CODE, "msg": str(e)}
     return {'code': SUCCESS_CODE, 'msg': 'success', 'result': results}
 
 @app.route('/analysisEnd/runLive', methods=['POST'])
 def get_live_results():
     try:
-        # data = json.loads(request.get_data())
+        print(request.form)
         msc = str(round(time.time() * 1000))
         working_dir = os.path.join(LIVE_TMP_PATH, msc)
         if not os.path.exists(working_dir):
             os.mkdir(working_dir)
-
-        with open(os.path.join(LIVE_TMP_PATH, "live.mp4"), "wb") as vid:
-            video_stream = request.FILES['blob'].read()
-            print(video_stream)
+        # save video
+        with open(os.path.join(working_dir, "live.mp4"), "wb") as vid:
+            video_stream = request.files['recorded'].stream.read()
+            # video_stream = request.form['video'].stream.read()
             vid.write(video_stream)
-        
-        # move live video into working_dir and rename it
-
-        # create subprocess to run the live process
-
-        # waiting
-
-        # return results
+        # load other params
+        pre_trained_models = request.form['model'].split(',')
+        results = []
+        for pre_trained_model in pre_trained_models:
+            model_name, dataset_name = pre_trained_model.split('-')[0:2]
+            other_args = {
+                'pre_trained_model': pre_trained_model,
+                'modelName': model_name,
+                'datasetName': dataset_name,
+                'live_working_dir': working_dir,
+                'transcript': request.form['transcript'],
+                'language': request.form['language']
+            }
+            results.append(run_live(other_args))
     except Exception as e:
+        print(e)
         return {"code": ERROR_CODE, "msg": str(e)}
     finally:
         if os.path.exists(working_dir):
             shutil.rmtree(working_dir)
-    return {"code": SUCCESS_CODE, "msg": "success"}
+    return {"code": SUCCESS_CODE, "msg": "success", "result": results}
 
 """
 Tasks

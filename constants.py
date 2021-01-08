@@ -17,6 +17,8 @@ LABEL_BY_N2I = {"Unlabeled": -1, "Human": 0, "Machine": 1, "Middle": 2, "Hard": 
 LABEL_BY_I2N = {-1: "Unlabeled", 0: "Human", 1: "Machine", 2: "Middle", 3: "Hard"}
 MANUAL_LABEL_BATCH_SIZE = 16
 
+OPENFACE_FEATURE_PATH = '/home/iyuge2/ToolKits/OpenFace/build/bin/FeatureExtraction'
+
 # MODEL-END
 MM_CODES_PATH = '/home/iyuge2/Project/M-SENA/M-SENA-Backend/M-Codes'
 MODEL_TMP_SAVE = '/home/iyuge2/Project/M-SENA/M-SENA-Backend/M-Codes/results'

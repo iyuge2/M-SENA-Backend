@@ -59,7 +59,7 @@ class Result(db.Model):
         return str(self.__dict__)
 
 class SResults(db.Model):
-    __tablename__ = "SResult"
+    __tablename__ = "SResults"
     result_id = db.Column(db.Integer, primary_key=True, nullable=False)
     sample_id = db.Column(db.Integer, primary_key=True, nullable=False)
     label_value = db.Column(db.String(16), nullable=False)

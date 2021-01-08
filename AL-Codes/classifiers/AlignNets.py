@@ -49,7 +49,7 @@ class AlignSubNet(nn.Module):
         assert mode in ['avg_pool', 'ctc', 'conv1d']
 
         in_dim_t, in_dim_a, in_dim_v = args.feature_dims
-        seq_len_t, seq_len_a, seq_len_v = args.input_lens
+        seq_len_t, seq_len_a, seq_len_v = args.seq_lens
         self.dst_len = min(seq_len_t, seq_len_a, seq_len_v)
         self.mode = mode
 
