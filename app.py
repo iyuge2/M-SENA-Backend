@@ -5,20 +5,17 @@ import time
 import pickle
 import subprocess
 import numpy as np
+import pandas as pd
 from glob import glob
+from tqdm import tqdm
 from collections import Counter
 from datetime import datetime
-from sklearn.decomposition import PCA
 
-import pandas as pd
 import xlwt
 from flask import Flask, make_response, request, send_from_directory
 from flask_cors import CORS, cross_origin
 from flask_sqlalchemy import SQLAlchemy
-from flask_uploads import UploadSet, configure_uploads
-from sqlalchemy.orm import load_only
 from sqlalchemy import or_, and_, not_, desc, asc
-from tqdm import tqdm
 
 from constants import *
 from database import *
@@ -58,6 +55,9 @@ def scan_datasets():
             for i in tqdm(range(len(label_df))):
                 video_id, clip_id, text, label, annotation, mode, label_by = \
                     label_df.loc[i, ['video_id', 'clip_id', 'text', 'label', 'annotation', 'mode', 'label_by']]
+
+                if len(text) > SQL_MAX_TEXT_LEN:
+                    text = text[:SQL_MAX_TEXT_LEN-10]
                 
                 cur_video_path = os.path.join(configs['raw_video_dir'], video_id, \
                                                 clip_id+"." + configs['video_format'])
@@ -443,32 +443,15 @@ def get_settings():
 @app.route('/modelEnd/getArgs', methods=['POST'])
 def get_args():
     try:
-        model_name = json.loads(request.get_data())['model']
+        requests = json.loads(request.get_data())
+        model_name = requests['model']
+        dataset_name = requests['dataset']
         with open(os.path.join(MM_CODES_PATH, 'config.json'), 'r') as fp:
             config = json.load(fp)["MODELS"]
-        args = config[model_name]['args']
+        args = config[model_name]['args'][dataset_name]
     except Exception as e:
         return {"code": ERROR_CODE, "msg": str(e)}
     return {"code": SUCCESS_CODE, "msg": 'success', "args":json.dumps(args)}
-
-@app.route('/modelEnd/setDefaultModel', methods=['POST'])
-def set_default_args():
-    try:
-        result_id = json.loads(request.get_data())['id']
-        cur_result = db.session.query(Result).get(result_id)
-        # revise config.json in model codes
-        with open(os.path.join(MM_CODES_PATH, 'config.json'), 'r') as f:
-            model_config = json.load(f)
-        model_config['MODELS'][cur_result.model_name]['args'] = json.loads(cur_result.args)
-        with open(os.path.join(MM_CODES_PATH, 'config.json'), 'w') as f:
-            json.dump(model_config, f, indent=4)
-
-        cur_result.is_default = True
-        db.session.commit()
-    except Exception as e:
-        return {"code": ERROR_CODE, "msg": str(e)}
-    return {"code": SUCCESS_CODE, "msg": 'success'}
-
 
 
 """
@@ -542,7 +525,7 @@ def get_results_details():
             e_res = json.loads(cur_e.results)
             for mode in ['train', 'valid', 'test']:
                 for item in ['loss_value', 'accuracy', 'f1']:
-                    ret[mode][item].append(e_res[mode][item])
+                    ret[mode][item].append(round(e_res[mode][item], 4))
     except Exception as e:
         return {"code": ERROR_CODE, "msg": str(e)}
     return {"code": SUCCESS_CODE, "msg": 'success', "results": ret}
@@ -586,18 +569,20 @@ def get_sample_details():
             (result_mode == "Right" and s_res.label_value == s_res.predict_value) or \
             (result_mode == "Wrong" and s_res.label_value != s_res.predict_value):
                 cur_sample = db.session.query(Dsample).get(s_res.sample_id)
-                if data_mode == "All" or (cur_sample.data_mode == data_mode.lower()):
-                    cur_res = {
-                        "sample_id": s_res.sample_id,
-                        "video_id": cur_sample.video_id,
-                        "clip_id": cur_sample.clip_id,
-                        "data_mode": cur_sample.data_mode,
-                        "predict_value": s_res.predict_value,
-                        "label_value": s_res.label_value,
-                        "text": cur_sample.text,
-                        "video_url": os.path.join(DATASET_SERVER_IP, cur_sample.video_path)
-                    }
-                    ret.append(cur_res)
+                print(s_res.sample_id)
+                if cur_sample:
+                    if data_mode == "All" or (cur_sample.data_mode == data_mode.lower()):
+                        cur_res = {
+                            "sample_id": s_res.sample_id,
+                            "video_id": cur_sample.video_id,
+                            "clip_id": cur_sample.clip_id,
+                            "data_mode": cur_sample.data_mode,
+                            "predict_value": s_res.predict_value,
+                            "label_value": s_res.label_value,
+                            "text": cur_sample.text,
+                            "video_url": os.path.join(DATASET_SERVER_IP, cur_sample.video_path)
+                        }
+                        ret.append(cur_res)
 
         page,pageSize = data['pageNo'], data['pageSize']
         
@@ -611,6 +596,24 @@ def get_sample_details():
         print(e)
         return {"code": ERROR_CODE, "msg": str(e)}
     return {"code": SUCCESS_CODE, "msg": 'success', "totalCount": totolCount, "results": ret}
+
+@app.route('/analysisEnd/setDefaultModel', methods=['POST'])
+def set_default_args():
+    try:
+        result_id = json.loads(request.get_data())['id']
+        cur_result = db.session.query(Result).get(result_id)
+        # revise config.json in model codes
+        with open(os.path.join(MM_CODES_PATH, 'config.json'), 'r') as f:
+            model_config = json.load(f)
+        model_config['MODELS'][cur_result.model_name]['args'][cur_result.dataset_name] = json.loads(cur_result.args)
+        with open(os.path.join(MM_CODES_PATH, 'config.json'), 'w') as f:
+            json.dump(model_config, f, indent=4)
+
+        # cur_result.is_default = True
+        db.session.commit()
+    except Exception as e:
+        return {"code": ERROR_CODE, "msg": str(e)}
+    return {"code": SUCCESS_CODE, "msg": 'success'}
 
 @app.route('/analysisEnd/delResult', methods=['POST'])
 def del_results():
@@ -640,27 +643,20 @@ def del_results():
 def batch_test():
     try:
         data = json.loads(request.get_data())
-        models = [data['primary']] + data['other']
+        models = data['model']
         mode = data['mode'].lower()
         results = []
         for model in models:
             result_id = int(model.split('-')[-1])
-            e_result = db.session.query(EResult).filter_by(result_id=result_id, epoch_num=-1).first()
-            if e_result:
-                e_res = json.loads(e_result.results)
-                cur_result = {
-                    "model": model,
-                    "acc2": e_res[mode]['accuracy'],
-                    "acc2Delta": 0.0,
-                    "f1": e_res[mode]['accuracy'],
-                    "f1Delta": 0.0,
-                }
-                if len(results) >= 1:
-                    for k in ['acc2', 'f1']:
-                        cur_result[k + 'Delta'] = results[0][k] - cur_result[k]
-                results.append(cur_result)
+            cur_result = {k:[] for k in ['loss_value', 'accuracy', 'f1']}
+            cur_result['model'] = model
+            e_result = db.session.query(EResult).filter_by(result_id=result_id).order_by(asc(EResult.epoch_num)).all() 
+            for cur_e in e_result:
+                e_res = json.loads(cur_e.results)
+                for item in ['loss_value', 'accuracy', 'f1']:
+                    cur_result[item].append(round(e_res[mode][item], 4))
+            results.append(cur_result)
     except Exception as e:
-        print(e)
         return {"code": ERROR_CODE, "msg": str(e)}
     return {'code': SUCCESS_CODE, 'msg': 'success', 'result': results}
 

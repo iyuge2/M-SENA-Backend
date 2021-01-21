@@ -25,7 +25,7 @@ class Dsample(db.Model):
     video_id = db.Column(db.String(32), nullable=False)
     clip_id = db.Column(db.String(32), nullable=False)
     video_path = db.Column(db.String(128), nullable=False)
-    text = db.Column(db.String(512), nullable=False)
+    text = db.Column(db.String(SQL_MAX_TEXT_LEN), nullable=False)
     # 0 -- train, 1 -- valid, 2 -- test
     data_mode = db.Column(db.String(8), nullable=False)
     label_value = db.Column(db.Float)
