@@ -105,7 +105,8 @@ if __name__ == '__main__':
     arg = parse_args()
     if arg.mode == "all" or arg.mode == "drop":
         # clear tmp dir
-        shutil.rmtree(MODEL_TMP_SAVE)
+        if os.path.exists(MODEL_TMP_SAVE):
+            shutil.rmtree(MODEL_TMP_SAVE)
         db.drop_all()
     if arg.mode == "all" or arg.mode == "create":
         db.create_all()

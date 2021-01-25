@@ -6,9 +6,9 @@ ERROR_CODE = 4040
 SQL_MAX_TEXT_LEN = 1024
 
 # DATA-END
-DATASET_ROOT_DIR = "/home/iyuge2/Project/M-SENA/Datasets"
+DATASET_ROOT_DIR = "/home/sharing/disk3/dataset/multimodal-sentiment-dataset/StandardDatasets"
 DATASET_SERVER_PORT = 8096
-DATASET_SERVER_IP = f"http://166.111.138.149:{DATASET_SERVER_PORT}"
+DATASET_SERVER_IP = f"http://166.111.138.96:{DATASET_SERVER_PORT}"
 MAX_ARGS_LEN = 1024 # max length of model parameters (string)
 TRAIN_MODE = 0
 VALID_MODE = 1
@@ -22,12 +22,12 @@ MANUAL_LABEL_BATCH_SIZE = 16
 OPENFACE_FEATURE_PATH = '/home/iyuge2/ToolKits/OpenFace/build/bin/FeatureExtraction'
 
 # MODEL-END
-MM_CODES_PATH = '/home/iyuge2/Project/M-SENA/M-SENA-Backend/M-Codes'
-MODEL_TMP_SAVE = '/home/iyuge2/Project/M-SENA/M-SENA-Backend/M-Codes/results'
-AL_CODES_PATH = '/home/iyuge2/Project/M-SENA/M-SENA-Backend/AL-Codes'
+MM_CODES_PATH = '/home/iyuge2/Project/M-SENA-Backend/M-Codes'
+MODEL_TMP_SAVE = '/home/iyuge2/Project/M-SENA-Backend/M-Codes/results'
+AL_CODES_PATH = '/home/iyuge2/Project/M-SENA-Backend/AL-Codes'
 
 # ANALYSIS-END
-LIVE_TMP_PATH = '/home/iyuge2/Project/M-SENA/M-SENA-Backend/M-Codes/tmp_dir'
+LIVE_TMP_PATH = '/home/iyuge2/Project/M-SENA-Backend/M-Codes/tmp_dir'
 
 # limit sequence length
 MAX_TEXT_SEQ_LEN = 20

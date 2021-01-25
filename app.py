@@ -11,7 +11,6 @@ from tqdm import tqdm
 from collections import Counter
 from datetime import datetime
 
-import xlwt
 from flask import Flask, make_response, request, send_from_directory
 from flask_cors import CORS, cross_origin
 from flask_sqlalchemy import SQLAlchemy
@@ -77,6 +76,7 @@ def scan_datasets():
 
             db.session.commit()
     except Exception as e:
+        print(e)
         return {"code": ERROR_CODE, "msg": str(e)}
     return {"code": SUCCESS_CODE, "msg": "success"}
 
@@ -84,19 +84,15 @@ def scan_datasets():
 def get_datasets_info():
     try:
         data = json.loads(request.get_data())
-        page,pageSize = data['pageNo'], data['pageSize']
         
         res = []
         sample = db.session.query(Dsample).first()
         if sample:
-            # print(page, pageSize)
             with open(os.path.join(DATASET_ROOT_DIR, 'config.json'), 'r') as fp:
                 dataset_config = json.load(fp)
 
-            
             for k, dataset in dataset_config.items():
                 p = {}
-                print(dataset)
                 if data['unlocked'] == False or \
                     (data['unlocked'] and dataset['is_locked'] == False):
                     p['datasetName'] = k
@@ -107,17 +103,9 @@ def get_datasets_info():
                     p['capacity'] = len(samples)
                     res.append(p)
 
-            totolCount = len(res)
-            start_i = (page - 1) * pageSize
-            if start_i > totolCount:
-                return {"code": ERROR_CODE, "msg": 'page error!'}
-            end_i = (start_i + pageSize) if (start_i + pageSize) <= totolCount else totolCount
-            res = res[start_i:end_i]
-        else:
-            totolCount = 0
     except Exception as e:
         return {"code": ERROR_CODE, "msg": str(e)}
-    return {"code": SUCCESS_CODE, "msg": 'success', "totalCount": totolCount, "datasetList": res}
+    return {"code": SUCCESS_CODE, "msg": 'success', "datasetList": res}
 
 @app.route('/dataEnd/getMetaData', methods=['POST'])
 def get_meta_data():
