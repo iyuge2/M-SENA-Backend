@@ -15,8 +15,8 @@ VALID_MODE = 1
 TEST_MODE = 2
 LABEL_NAME_N2I = {"Negative": 0, "Neutral": 1, "Positive": 2}
 LABEL_NAME_I2N = {0: "Negative", 1: "Neutral", 2: "Positive"}
-LABEL_BY_N2I = {"Unlabeled": -1, "Human": 0, "Machine": 1, "Middle": 2, "Hard": 3}
-LABEL_BY_I2N = {-1: "Unlabeled", 0: "Human", 1: "Machine", 2: "Middle", 3: "Hard"}
+LABEL_BY_N2I = {"Unlabeled": -1, "Human": 0, "Machine": 1, "Medium": 2, "Hard": 3}
+LABEL_BY_I2N = {-1: "Unlabeled", 0: "Human", 1: "Machine", 2: "Medium", 3: "Hard"}
 MANUAL_LABEL_BATCH_SIZE = 16
 
 OPENFACE_FEATURE_PATH = '/home/iyuge2/ToolKits/OpenFace/build/bin/FeatureExtraction'

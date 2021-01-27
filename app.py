@@ -6,6 +6,7 @@ import pickle
 import subprocess
 import numpy as np
 import pandas as pd
+from pytz import timezone
 from glob import glob
 from tqdm import tqdm
 from collections import Counter
@@ -156,6 +157,8 @@ def get_dataset_details():
             samples = samples.filter_by(annotation=data['sentiment_filter'])
         if data['data_mode_filter'] != 'All':
             samples = samples.filter_by(data_mode=data['data_mode_filter'])
+        if data['id_filter'] != '':
+            samples = samples.filter_by(video_id=data['id_filter'])
 
         samples = samples.all()
 
@@ -163,9 +166,14 @@ def get_dataset_details():
         for sample in samples:
             p = sample.__dict__.copy()
             p.pop('_sa_instance_state', None)
-            p['manualLabel'] = LABEL_NAME_I2N[p['label_value']] if p['label_by'] == 0 else '-'
-            p['prediction'] = LABEL_NAME_I2N[p['label_value']] if p['label_by'] != 0 else '-'
+            p['annotation'] = LABEL_NAME_I2N[p['label_value']] if p['label_by'] in [0, 1] else '-'
+            p['prediction'] = LABEL_NAME_I2N[p['label_value']] if p['label_by'] not in [0, 1] else '-'
+            p['need_human'] = False if p['label_by'] in [0, 1] else True 
             p['video_url'] = os.path.join(DATASET_SERVER_IP, p['video_path'])
+            p['difficulty'] = LABEL_BY_I2N[p['label_by']]
+            # drop
+            p.pop('label_by', None)
+            p.pop('label_value', None)
             ret.append(p)
 
         totolCount = len(ret)
@@ -213,7 +221,7 @@ DATA-Labeling
 def update_label():
     try:
         results = json.loads(request.get_data())['resultList']
-        print(results)
+        # print(results)
         for res in results:
             if res['annotation'] in LABEL_NAME_N2I.keys():
                 sample = db.session.query(Dsample).get(res['sample_id'])
@@ -232,7 +240,7 @@ def get_hard_samples():
         samples = db.session.query(Dsample).filter_by(dataset_name=datasetName).filter(or_(Dsample.label_by==-1, Dsample.label_by==2, Dsample.label_by==3)).all()
         if len(samples) > MANUAL_LABEL_BATCH_SIZE:
             samples = samples[:MANUAL_LABEL_BATCH_SIZE]
-        print(len(samples))
+        # print(len(samples))
 
         data = []
         for sample in samples:
@@ -458,13 +466,21 @@ def get_results():
         if data['is_tuning'] != 'Both':
             results = results.filter_by(is_tuning=data['is_tuning'])
 
-        results = results.all()
+        # sorted results
+        if data['order'] == 'descending':
+            results = results.order_by(eval('Result.'+data['sortBy']).desc()).all()
+        elif data['order'] == 'ascending':
+            results = results.order_by(eval('Result.'+data['sortBy']).asc()).all()
+        else:
+            results = results.all()
+
         ret = []
         
         for result in results:
             p = result.__dict__.copy()
             p.pop('_sa_instance_state', None)
             cur_id = p['result_id']
+            p['created_at'] = p['created_at'].astimezone(timezone('Asia/Shanghai'))
             p['test-acc'] = result.accuracy
             p['test-f1'] = result.f1
             p['train'] = {k:[] for k in ['loss_value', 'accuracy', 'f1']}
@@ -495,7 +511,7 @@ def get_results():
 def get_results_details():
     try:
         result_id = json.loads(request.get_data())['id']
-        print(result_id)
+        # print(result_id)
         cur_result = db.session.query(Result).get(result_id)
         ret = {
             "id": result_id,
@@ -557,8 +573,7 @@ def get_sample_details():
             (result_mode == "Right" and s_res.label_value == s_res.predict_value) or \
             (result_mode == "Wrong" and s_res.label_value != s_res.predict_value):
                 cur_sample = db.session.query(Dsample).get(s_res.sample_id)
-                print(s_res.sample_id)
-                if cur_sample:
+                if cur_sample and (data['video_id'] == '' or cur_sample.video_id == data['video_id']):
                     if data_mode == "All" or (cur_sample.data_mode == data_mode.lower()):
                         cur_res = {
                             "sample_id": s_res.sample_id,
@@ -607,7 +622,7 @@ def set_default_args():
 def del_results():
     try:
         result_ids = json.loads(request.get_data())['id']
-        print(result_ids)
+        # print(result_ids)
         for result_id in result_ids:
             cur_result = db.session.query(Result).get(result_id)
             cur_name = cur_result.model_name + '-' + cur_result.dataset_name + '-' + str(cur_result.result_id)
@@ -651,7 +666,7 @@ def batch_test():
 @app.route('/analysisEnd/runLive', methods=['POST'])
 def get_live_results():
     try:
-        print(request.form)
+        # print(request.form)
         msc = str(round(time.time() * 1000))
         working_dir = os.path.join(LIVE_TMP_PATH, msc)
         if not os.path.exists(working_dir):
@@ -663,7 +678,7 @@ def get_live_results():
             vid.write(video_stream)
         # load other params
         pre_trained_models = request.form['model'].split(',')
-        results = []
+        results = {k: [] for k in "MTAV"}
         for pre_trained_model in pre_trained_models:
             model_name, dataset_name = pre_trained_model.split('-')[0:2]
             other_args = {
@@ -674,7 +689,10 @@ def get_live_results():
                 'transcript': request.form['transcript'],
                 'language': request.form['language']
             }
-            results.append(run_live(other_args))
+            cur_results = run_live(other_args)
+            for k, v in cur_results.items():
+                v['model'] = pre_trained_model
+                results[k].append(v)
     except Exception as e:
         print(e)
         return {"code": ERROR_CODE, "msg": str(e)}
@@ -702,8 +720,8 @@ def get_task_list():
             p = task.__dict__.copy()
             p.pop('_sa_instance_state', None)
             p['task_type'] = task_type_dict[p['task_type']]
-            # p['start_time'] = p['start_time'].strftime('%Y-%m-%d %H:%M')
-            # p['end_time'] = p['end_time'].strftime('%Y-%m-%d %H:%M')
+            p['start_time'] = p['start_time'].astimezone(timezone('Asia/Shanghai'))
+            p['end_time'] = p['end_time'].astimezone(timezone('Asia/Shanghai'))
             if p['state'] == 0:
                 run_tasks.append(p)
             elif p['state'] == 1:
@@ -744,7 +762,7 @@ def stop_task():
 def delete_task():
     try:
         data = json.loads(request.get_data())
-        print(data)
+        # print(data)
         task_id = data['task_id']
         cur_task = db.session.query(Task).get(task_id)
         db.session.delete(cur_task)

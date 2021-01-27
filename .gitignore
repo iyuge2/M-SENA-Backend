@@ -8,4 +8,4 @@ nohup*.out
 **.out
 **.npz
 results
-pretrained_model
+**/pretrained_model

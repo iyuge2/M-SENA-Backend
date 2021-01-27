@@ -12,9 +12,9 @@ SQLAlchemy>=1.2.1
 tqdm>=4.56.0
 mysqlclient>=2.0.3
 librosa
-torch>=1.7.0
-torchaudio>=0.7.0
-torchvision>=0.8.1
+torch==1.2.0
+torchvision>=0.2.1
 baidu-aip
 facenet_pytorch
 torchsnooper
+facenet_pytorch==0.4.0
