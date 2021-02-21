@@ -95,14 +95,14 @@ def run_live(args):
     return ret
 
 if __name__ == "__main__":
-    pre_trained_model = 'LF_DNN-MOSI-77.pth'
+    pre_trained_model = 'LF_DNN-MOSI-87.pth'
     model_name, dataset_name = pre_trained_model.split('-')[0:2]
     other_args = {
         'pre_trained_model': pre_trained_model,
         'modelName': model_name,
         'datasetName': dataset_name,
-        'live_working_dir': os.path.join(MM_CODES_PATH, 'tmp_dir/1611746612889'),
-        'transcript': "It is awesome!",
+        'live_working_dir': os.path.join(MM_CODES_PATH, 'tmp_dir/1612112844023'),
+        'transcript': "What a brilliant idea!",
         'language': "English"
     }
     print(run_live(other_args))

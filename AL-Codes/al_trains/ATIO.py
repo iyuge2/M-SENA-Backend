@@ -8,7 +8,7 @@ from torch.autograd import Variable
 from torch.nn.parameter import Parameter
 from torch.nn.init import xavier_uniform, xavier_normal, orthogonal
 
-from trains.TFN import TFN
+from al_trains.TFN import TFN
 
 __all__ = ['ATIO']
 

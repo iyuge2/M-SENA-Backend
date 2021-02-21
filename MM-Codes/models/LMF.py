@@ -104,8 +104,6 @@ class LMF(nn.Module):
         # use linear transformation instead of simple summation, more flexibility
         fusion = torch.matmul(self.fusion_weights, fusion_zy.permute(1, 0, 2)).squeeze() + self.fusion_bias
         output = fusion.view(-1, self.output_dim)
-        if self.use_softmax:
-            output = F.softmax(output)
 
         res = {
             'Feature_T': text_h,

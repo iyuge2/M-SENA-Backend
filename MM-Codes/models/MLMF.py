@@ -102,15 +102,22 @@ class MLMF(nn.Module):
 
         # dimensions are specified in the order of audio, video and text
         self.text_in, self.audio_in, self.video_in = args.feature_dims
-        self.text_hidden, self.audio_hidden, self.video_hidden = args.hidden_dims
+        self.text_hidden = args.hidden_dims_t
+        self.audio_hidden = args.hidden_dims_a
+        self.video_hidden = args.hidden_dims_v
 
         self.text_out= self.text_hidden // 2
         self.output_dim = args.num_classes
         self.rank = args.rank
 
-        self.audio_prob, self.video_prob, self.text_prob, self.post_fusion_prob = args.dropouts
+        self.text_prob = args.dropouts_t
+        self.audio_prob = args.dropouts_a
+        self.video_prob = args.dropouts_v
 
-        self.post_text_prob, self.post_audio_prob, self.post_video_prob = args.post_dropouts
+        self.post_text_prob = args.post_dropouts_t
+        self.post_audio_prob = args.post_dropouts_a
+        self.post_video_prob = args.post_dropouts_v
+        self.post_fusion_prob = args.post_dropouts_f
         self.post_text_dim = args.post_text_dim
         self.post_audio_dim = args.post_audio_dim
         self.post_video_dim = args.post_video_dim
@@ -203,14 +210,14 @@ class MLMF(nn.Module):
 
         # output = torch.sum(fusion_zy, dim=0).squeeze()
         # use linear transformation instead of simple summation, more flexibility
-        output = torch.matmul(self.fusion_weights, fusion_zy.permute(1, 0, 2)).squeeze() + self.fusion_bias
-        output = output.view(-1, self.output_dim)
+        fusion = torch.matmul(self.fusion_weights, fusion_zy.permute(1, 0, 2)).squeeze() + self.fusion_bias
+        output = fusion.view(-1, self.output_dim)
 
         res = {
             'Feature_T': text_h,
             'Feature_A': audio_h,
             'Feature_V': video_h,
-            'Feature_M': fusion_zy.permute(1, 0, 2).squeeze(),
+            'Feature_M': fusion,
             'M': output,
             'T': output_text,
             'A': output_audio,

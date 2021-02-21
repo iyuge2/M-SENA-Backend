@@ -81,6 +81,49 @@ def scan_datasets():
         return {"code": ERROR_CODE, "msg": str(e)}
     return {"code": SUCCESS_CODE, "msg": "success"}
 
+@app.route('/dataEnd/updateDataset', methods=['POST'])
+def update_datasets():
+    try:
+        dataset_name = json.loads(request.get_data())['datasetName']
+        with open(os.path.join(DATASET_ROOT_DIR, 'config.json'), 'r') as fp:
+            dataset_config = json.load(fp)
+
+        configs = dataset_config[dataset_name]
+        
+        db.session.query(Dsample).filter_by(dataset_name=dataset_name).delete()
+        # scan dataset for sample table
+        label_df = pd.read_csv(os.path.join(DATASET_ROOT_DIR, configs['label_path']), 
+                                dtype={"video_id": "str", "clip_id": "str", "text": "str"})
+
+        for i in tqdm(range(len(label_df))):
+            video_id, clip_id, text, label, annotation, mode, label_by = \
+                label_df.loc[i, ['video_id', 'clip_id', 'text', 'label', 'annotation', 'mode', 'label_by']]
+
+            if len(text) > SQL_MAX_TEXT_LEN:
+                text = text[:SQL_MAX_TEXT_LEN-10]
+            
+            cur_video_path = os.path.join(configs['raw_video_dir'], video_id, \
+                                            clip_id+"." + configs['video_format'])
+            # print(video_id, clip_id, text, label, annotation, mode)
+            payload = Dsample(
+                dataset_name=dataset_name,
+                video_id=video_id,
+                clip_id=clip_id,
+                video_path=cur_video_path,
+                text=text,
+                data_mode=mode,
+                label_value=label,
+                annotation=annotation,
+                label_by=label_by
+            )
+            db.session.add(payload)
+
+        db.session.commit()
+    except Exception as e:
+        print(e)
+        return {"code": ERROR_CODE, "msg": str(e)}
+    return {"code": SUCCESS_CODE, "msg": "success"}
+
 @app.route('/dataEnd/getDatasetList', methods=['POST'])
 def get_datasets_info():
     try:
@@ -282,6 +325,7 @@ def run_activeLearning():
             '--task_id', str(task_id)
         ]
         p = subprocess.Popen(cmd_page, close_fds=True)
+        print(p.pid)
 
         payload.task_pid = p.pid
         db.session.commit()
@@ -289,7 +333,6 @@ def run_activeLearning():
         return {"code": ERROR_CODE, "msg": str(e)}
     return {"code": SUCCESS_CODE, "msg": 'success'}
     
-
 @app.route('/dataEnd/getALModels', methods=["GET"])
 def get_classifier():
     try:
@@ -347,12 +390,35 @@ def save_selector_config():
         return {"code": ERROR_CODE, "msg": str(e)}
     return {"code": SUCCESS_CODE, "msg": 'success'}
 
-# @app.route('/dataEnd/exportDataset', methods=['POST'])
-# def export_dataset():
-#     dataset_name = json.loads(request.get_data())['datasetName']
-#     print(dataset_name)
-    
-#     return {"code": SUCCESS_CODE, "msg": 'success'}
+@app.route('/dataEnd/exportLabels', methods=['POST'])
+def export_labels():
+    try:
+        dataset_name = json.loads(request.get_data())['datasetName']
+        samples = db.Query(Dsample).filter_by(dataset_name=dataset_name).all()
+        name_label_dict = {} # {"video_id$_$clip_id": [label, label_by, annotation]}
+        for sample in samples:
+            key = f'{sample.video_id}$_${sample.clip_id}'
+            name_label_dict[key] = [sample.label_value, sample.label_by, sample.annotation]
+        # load label file
+        with open(os.path.join(AL_CODES_PATH, 'config.json'), 'r') as fp:
+            config = json.load(fp)
+        label_path = config['data'][dataset_name]['label_path']
+        df = pd.read_csv(label_path, encoding='utf-8', dtype={'video_id': str, 'clip_id':str})
+        new_labels, new_label_bys, new_annotations = [], [], []
+        for i in range(len(df)):
+            video_id, vlip_id = df.loc[i, ['video_id', 'clip_id']]
+            key = f'{video_id}$_${clip_id}'
+            new_labels.append(name_label_dict[key][0])
+            new_label_bys.append(name_label_dict[key][1])
+            new_annotations.append(name_label_dict[key][2])
+        # update label file
+        df['label'] = new_labels
+        df['label_by'] = new_label_bys
+        df['annotation'] = new_annotations
+        df.to_csv(label_path, index=None, encoding='utf-8')
+    except Exception as e:
+        return {"code": ERROR_CODE, "msg": str(e)}
+    return {"code": SUCCESS_CODE, "msg": 'success'}
 
 """
 Model-End
@@ -697,8 +763,9 @@ def get_live_results():
         print(e)
         return {"code": ERROR_CODE, "msg": str(e)}
     finally:
-        if os.path.exists(working_dir):
-            shutil.rmtree(working_dir)
+        pass
+        # if os.path.exists(working_dir):
+        #     shutil.rmtree(working_dir)
     return {"code": SUCCESS_CODE, "msg": "success", "result": results}
 
 """

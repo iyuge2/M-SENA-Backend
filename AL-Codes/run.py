@@ -13,15 +13,15 @@ import torch
 sys.path.insert(0, os.getcwd())
 sys.path.insert(0, os.path.dirname(__file__))
 
-from load_data import MMDataLoader
-from classifiers.AMIO import AMIO
-from discriminators.ASIO import ASIO
-from trains.ATIO import ATIO
-from utils.functions import Storage
-
 from app import db
 from database import *
 from constants import *
+
+from load_data import MMDataLoader
+from classifiers.AMIO import AMIO
+from discriminators.ASIO import ASIO
+from al_trains.ATIO import ATIO
+from al_utils.functions import Storage
 
 def setup_seed(seed):
     torch.manual_seed(seed)
@@ -61,36 +61,41 @@ def run(args):
     asio = ASIO().getSelector(args)
     results = asio.do_select(outputs)
 
-    # save results into label file
-    df = pd.read_csv(args.label_path, encoding='utf-8', dtype={'video_id': str, 'clip_id':str})
-    tmp_dict = {}
-    for i in range(len(df)):
-        video_id, clip_id = df.loc[i, ['video_id', 'clip_id']]
-        tmp_dict[video_id + '-' + clip_id] = i
     # write
     label_by_dict = {
         "simple": 1,
         "middle": 2,
         "hard": 3
     }
-    for k in ['simple', 'middle', 'hard']:
-        ids, predicts = results[k]
-        for i in range(len(ids)):
-            df.loc[tmp_dict[ids[i]], ['label_M', 'label_by']] = [predicts[i], label_by_dict[k]]
-    df.to_csv(args.label_path, index=None, encoding='utf-8')
-    # save results into database
     if args.use_db:
+        # save results into database
+        annotation_dict = {v:k for k, v in args.annotations.items()}
+        if args.use_db:
+            for k in ['simple', 'middle', 'hard']:
+                ids, predicts = results[k]
+                # print(ids)
+                for i in range(len(ids)):
+                    video_id, clip_id = ids[i].split('-')
+                    sample = db.session.query(Dsample).filter_by(dataset_name=args.datasetName, \
+                                            video_id=video_id, clip_id=clip_id).first()
+                    sample.label_value = predicts[i]
+                    sample.label_by = label_by_dict[k]
+                    if k == 'simple':
+                        sample.annotation = annotation_dict[predicts[i]]
+        db.session.commit()
+    else:
+        # save results into label file
+        df = pd.read_csv(args.label_path, encoding='utf-8', dtype={'video_id': str, 'clip_id':str})
+        tmp_dict = {}
+        for i in range(len(df)):
+            video_id, clip_id = df.loc[i, ['video_id', 'clip_id']]
+            tmp_dict[video_id + '-' + clip_id] = i
         for k in ['simple', 'middle', 'hard']:
             ids, predicts = results[k]
-            # print(ids)
             for i in range(len(ids)):
-                video_id, clip_id = ids[i].split('-')
-                sample = db.session.query(Dsample).filter_by(dataset_name=args.datasetName, \
-                                        video_id=video_id, clip_id=clip_id).first()
-                sample.label_value = predicts[i]
-                sample.label_by = label_by_dict[k]
-        db.session.commit()
-
+                df.loc[tmp_dict[ids[i]], ['label', 'label_by']] = [predicts[i], label_by_dict[k]]
+        df.to_csv(args.label_path, index=None, encoding='utf-8')
+    
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--use_db', type=bool, default=True)

@@ -9,8 +9,8 @@ import torch
 import torch.nn as nn
 from torch import optim
 
-from utils.functions import dict_to_str
-from utils.metricsTop import MetricsTop
+from al_utils.functions import dict_to_str
+from al_utils.metricsTop import MetricsTop
 
 class TFN():
     def __init__(self, args):

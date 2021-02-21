@@ -282,9 +282,9 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--run_mode', type=str, default="Train",
                         help='Tune; Train; LiveTest')
-    parser.add_argument('--modelName', type=str, default="MISA",
+    parser.add_argument('--modelName', type=str, default="MLMF",
                         help='support TFN/LMF/MFN/EF_LSTM/LF_DNN/Graph-MFN/MTFN/MLF_DNN/MLMF/MULT/MISA')
-    parser.add_argument('--datasetName', type=str, default='MOSI',
+    parser.add_argument('--datasetName', type=str, default='SIMS',
                         help='support SIMS/MOSI/MOSEI')
     parser.add_argument('--parameters', type=str, default='')
     parser.add_argument('--task_id', type=int)

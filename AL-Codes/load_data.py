@@ -48,7 +48,7 @@ class MMDataset(Dataset):
             self.vision.append(data[key]['feature_V'])
             self.audio.append(data[key]['feature_A'])
             # self.labels.append(data[key]['label_M'])
-            self.labels.append(int((data[key]['label_M'] + 1.0) * 2.49))
+            self.labels.append(int((data[key]['label_M'] + 1.0) * 1.49))
             self.ids.append(key)
 
         self.text = np.array(self.text)

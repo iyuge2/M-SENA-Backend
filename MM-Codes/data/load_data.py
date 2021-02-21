@@ -120,7 +120,7 @@ class MMDataset(Dataset):
             'id': self.ids[index],
             'labels': {k: torch.Tensor(v[index].reshape(-1)) for k, v in self.labels.items()}
         } 
-        if self.args.need_data_aligned:
+        if not self.args.need_data_aligned:
             sample['audio_lengths'] = self.audio_lengths[index]
             sample['vision_lengths'] = self.vision_lengths[index]
         return sample

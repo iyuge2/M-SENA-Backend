@@ -38,14 +38,19 @@
     },
     "data": {
         "DemoDataset": {
-            "label_path": "/home/iyuge2/Project/M-SENA/Datasets/DemoDataset/label.csv",
-            "feature_path": "/home/iyuge2/Project/M-SENA/Datasets/DemoDataset/Processed/features/unaligned_39.pkl",
+            "label_path": "/home/sharing/disk3/dataset/multimodal-sentiment-dataset/StandardDatasets/DemoDataset/label.csv",
+            "feature_path": "/home/sharing/disk3/dataset/multimodal-sentiment-dataset/StandardDatasets/DemoDataset/Processed/features/unaligned_39.pkl",
             "feature_dims": [
                 768,
                 33,
                 709
             ],
-            "num_classes": 5
+            "num_classes": 3,
+            "annotations": {
+                "Negative": 0,
+                "Neutral": 1,
+                "Positive": 2
+            }
         }
     }
 }
