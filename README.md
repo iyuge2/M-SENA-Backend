@@ -1,6 +1,12 @@
 # M-SENA Backend
 
-[toc]
+- [M-SENA-Backend](#m-sena-backend)
+  - [Datasets](#datasets)
+  - [Codes](#codes)
+    - [Web Interface Codes](#web-interface-codes)
+    - [MM-Codes](#mm-codes)
+    - [AL-Codes](#al-codes)
+  - [Usage](#usage)
 
 ## Datasets
 
@@ -26,7 +32,7 @@ In this section, we introduce the organizational structure of datasets, which sh
 - `config.json`: stating necessary information for all datasets. For example, `language`, `label_path`, `features`, etc. It only works when scanning and updating datasets.
 - `**/label.csv`: storing detailed information for each video clip in `**` dataset, including `video_id`, `clip_id`, `normal text`, `label value (Float)`, `annotation (String)`, `mode (training attributes)`. Besides, we define a field `label_by` to indicate the label type, which is necessary for labeling based on active learning.
 
-![dataset-Label](assets/dataset-label.png)
+<!-- ![dataset-Label](assets/dataset-label.png) -->
 
 - `**/Processed`: placing feature files. We use `pickle` to store processed features, which are organized as the following structure. These files are used in `MM-Codes`.
 

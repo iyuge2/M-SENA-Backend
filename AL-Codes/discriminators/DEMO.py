@@ -10,7 +10,7 @@ class DEMO():
         self.high_score = 1 - 1 / (self.num_classes+2)
         self.low_score = self.high_score - 0.2
 
-    def do_select(self, classifier_outputs):
+    def do_select(self, classifier_outputs, hard_expect):
         """
         classifier_outputs:
             Predicts: [nsamples, num_classes]

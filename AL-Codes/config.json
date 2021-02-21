@@ -30,9 +30,23 @@
         }
     },
     "selectors": {
-        "DEMO": {
-            "args": {
-                "test": 12
+        "DEMO":{
+            "args":{}
+        },
+        "CONF":{
+            "args":{
+                "sift": "ratio",
+                "select_threshold": [0.85, 0.15]
+            }
+        },
+        "MARGIN":{
+            "args":{
+                "sift": "ratio"
+            }
+        },
+        "ENTROPY":{
+            "args":{
+                "sift": "ratio"
             }
         }
     },
