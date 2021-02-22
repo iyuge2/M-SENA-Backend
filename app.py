@@ -677,7 +677,6 @@ def set_default_args():
         model_config['MODELS'][cur_result.model_name]['args'][cur_result.dataset_name] = json.loads(cur_result.args)
         with open(os.path.join(MM_CODES_PATH, 'config.json'), 'w') as f:
             json.dump(model_config, f, indent=4)
-
         # cur_result.is_default = True
         db.session.commit()
     except Exception as e:
