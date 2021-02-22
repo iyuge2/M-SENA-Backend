@@ -98,9 +98,9 @@ def run(args):
     
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--use_db', type=bool, default=True)
+    parser.add_argument('--use_db', type=bool, default=False)
     parser.add_argument('--classifier', type=str, default='TFN')
-    parser.add_argument('--selector', type=str, default='DEMO')
+    parser.add_argument('--selector', type=str, default='CONF')
     parser.add_argument('--datasetName', type=str, default='DemoDataset')
     parser.add_argument('--task_id', type=int, default=0)
     return parser.parse_args()
@@ -113,6 +113,7 @@ if __name__ == "__main__":
             cur_task = db.session.query(Task).get(args.task_id)
             cur_task.state = 1
     except Exception as e:
+        print(e)
         if args.use_db:
             cur_task = db.session.query(Task).get(args.task_id)
             cur_task.state = 2

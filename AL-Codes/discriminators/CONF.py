@@ -15,7 +15,7 @@ class CONF():
         self.hard_rate = args.select_threshold[0]
         self.middle_rate = args.select_threshold[1]
 
-    def do_select(self, classifier_outputs, hard_expect):
+    def do_select(self, classifier_outputs):
         """
         classifier_outputs:
             Predicts: [nsamples, num_classes]
@@ -83,7 +83,7 @@ class CONF():
             #         print(1)
 
             middle = int(length*(1 - self.middle_rate))
-            hard = min(int(length*(1 - self.hard_rate)),hard_expect)
+            hard = int(length*(1 - self.hard_rate))
 
             hard_ids = sort_ids[0:hard]
             hard_results = [hard_ids, sort_porbs_ids[0:hard]]

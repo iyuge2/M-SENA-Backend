@@ -8,7 +8,7 @@ SQL_MAX_TEXT_LEN = 1024
 # DATA-END
 DATASET_ROOT_DIR = "/home/sharing/disk3/dataset/multimodal-sentiment-dataset/StandardDatasets"
 DATASET_SERVER_PORT = 8096
-DATASET_SERVER_IP = f"http://166.111.138.96:{DATASET_SERVER_PORT}"
+DATASET_SERVER_IP = f"http://166.111.138.98:{DATASET_SERVER_PORT}"
 MAX_ARGS_LEN = 1024 # max length of model parameters (string)
 TRAIN_MODE = 0
 VALID_MODE = 1

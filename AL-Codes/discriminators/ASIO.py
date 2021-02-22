@@ -4,7 +4,6 @@ ASIO -- All Selector in One
 import torch
 import torch.nn as nn
 
-from discriminators.DEMO import DEMO 
 from discriminators.CONF import CONF
 from discriminators.MARGIN import MARGIN
 from discriminators.ENTROPY import ENTROPY
@@ -14,7 +13,6 @@ __all__ = ['ASIO']
 class ASIO():
     def __init__(self):
         self.SELECTOR_MAP = {
-            'DEMO': DEMO,
             'CONF': CONF,
             'MARGIN': MARGIN,
             'ENTROPY': ENTROPY,

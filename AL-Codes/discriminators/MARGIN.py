@@ -14,7 +14,7 @@ class MARGIN():
         self.hard_rate = 0.85
         self.middle_rate = 0.2
 
-    def do_select(self, classifier_outputs, hard_expect):
+    def do_select(self, classifier_outputs):
         """
         classifier_outputs:
             Predicts: [nsamples, num_classes]
