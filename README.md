@@ -100,7 +100,7 @@ In this section, we introduce the organizational structure of datasets, which sh
 
 - `**/Raw`: placing raw videos. The path of each clip should be consistent with `label.csv`.
   
-We provide the download link for [preprocessed SIMS](https://pan.baidu.com/s/13Ax18SWnHRWCUJB2i8NsVw) `code: 4aa6`) (`md5: 3befed5d2f6ea63a8402f5875ecb220d`, which follows the above requirements. You can get more datasets from [CMU-MultimodalSDK](http://immortal.multicomp.cs.cmu.edu/raw_datasets/processed_data/). It's worth noting that it is not necessary to put datasets and codes together.
+We provide the download link for [preprocessed SIMS](https://pan.baidu.com/s/13Ax18SWnHRWCUJB2i8NsVw), `code: 4aa6`, `md5: 3befed5d2f6ea63a8402f5875ecb220d`, which follows the above requirements. You can get more datasets from [CMU-MultimodalSDK](http://immortal.multicomp.cs.cmu.edu/raw_datasets/processed_data/). It's worth noting that it is not necessary to put datasets and codes together.
 
 ### Codes
 
