@@ -9,3 +9,4 @@ nohup*.out
 **.npz
 results
 **/pretrained_model
+jupyter
