@@ -108,10 +108,10 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     try:
-        run(args)
         if args.use_db:
             cur_task = db.session.query(Task).get(args.task_id)
-            cur_task.state = 1
+        run(args)
+        cur_task.state = 1
     except Exception as e:
         print(e)
         if args.use_db:

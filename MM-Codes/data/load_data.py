@@ -36,13 +36,14 @@ class MMDataset(Dataset):
         self.ids = data[self.mode]['id']
 
         self.labels = {
-            'M': data[self.mode]['classification_labels'].astype(np.float32)
+            'M': np.array(data[self.mode]['classification_labels'])
         }
         if self.args.datasetName == 'SIMS':
             for m in "TAV":
-                self.labels[m] = data[self.mode]['classification_labels_'+m]
+                self.labels[m] = np.array(data[self.mode]['classification_labels_'+m])
 
-        print(f"{self.mode} samples: {self.labels['M'].shape}")
+        print(f"{self.mode} samples: {len(self.labels['M'])}, text: {self.text.shape}, \
+                audio: {self.audio.shape}, vision: {self.vision.shape}")
 
         if not self.args.need_data_aligned:
             self.audio_lengths = data[self.mode]['audio_lengths']

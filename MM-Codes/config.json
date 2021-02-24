@@ -856,16 +856,16 @@
         },
         "MOSI": {
             "unaligned": {
-                "feature_path": "MOSI/Processed/unaligned_50.pkl",
+                "feature_path": "MOSI/Processed/our_unaligned.pkl",
                 "seq_lens": [
-                    50,
-                    375,
-                    500
+                    44,
+                    620,
+                    144
                 ],
                 "feature_dims": [
                     768,
-                    5,
-                    20
+                    33,
+                    709
                 ],
                 "num_classes": 3,
                 "language": "English",
