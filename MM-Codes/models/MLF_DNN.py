@@ -68,7 +68,7 @@ class TextSubNet(nn.Module):
             x: tensor of shape (batch_size, sequence_len, in_size)
         '''
         _, final_states = self.rnn(x)
-        h = self.dropout(final_states[0].squeeze())
+        h = self.dropout(final_states[0].squeeze(1))
         y_1 = self.linear_1(h)
         return y_1
 
