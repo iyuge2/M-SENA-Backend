@@ -33,7 +33,7 @@ cd M-SENA-Backend
     ```
     conda create --name sena python=3.6
     source active sena
-    pip install requirements.txt
+    pip install -r requirements.txt
     ```
   - Download [Bert-Base, Chinese](https://storage.googleapis.com/bert_models/2018_11_03/chinese_L-12_H-768_A-12.zip) from [Google-Bert](https://github.com/google-research/bert). Then, convert Tensorflow into pytorch using [transformers-cli](https://huggingface.co/transformers/converting_tensorflow_models.html)  
   - Install [Openface Toolkits](https://github.com/TadasBaltrusaitis/OpenFace/wiki)
