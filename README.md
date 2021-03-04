@@ -12,45 +12,47 @@ This project is the backend of the [M-SENA Platform](https://github.com/thuiar/M
   - [Datasets](#datasets)
   - [Codes](#codes)
 
-## Installation
+# Installation
 
-### Docker
+## Docker
 
 See [M-SENA-frontend](https://github.com/FlameSky-S/M-SENA-frontend#docker)
 
-### Source code
+## Source code
 
-- Clone the repository
+### 1. Clone the repository
 
 ```shell
 git clone https://github.com/iyuge2/M-SENA-Backend.git
 cd M-SENA-Backend
 ```
 
-- Install requirements
+### 2. Install requirements
   -  Install mysql (version 5.7.32)
   -  Install python requirements
+
     ```
     conda create --name sena python=3.6
     source active sena
     pip install -r requirements.txt
     ```
+    
   - Download [Bert-Base, Chinese](https://storage.googleapis.com/bert_models/2018_11_03/chinese_L-12_H-768_A-12.zip) from [Google-Bert](https://github.com/google-research/bert). Then, convert Tensorflow into pytorch using [transformers-cli](https://huggingface.co/transformers/converting_tensorflow_models.html)  
   - Install [Openface Toolkits](https://github.com/TadasBaltrusaitis/OpenFace/wiki)
 
-- Download datasets and format them using `MM-Codes/data/DataPre.py`
-- Update global variables in `constants.py`
-- Update basic config in `config.sh`
-- Run
+### 3. Download datasets and format them using `MM-Codes/data/DataPre.py`
+### 4. Update global variables in `constants.py`
+### 5. Update basic config in `config.sh`
+### 6. Run
 
 ```
 source config.sh
 flask run --host=0.0.0.0
 ```
 
-## Reference
+# Reference
 
-### Datasets
+## Datasets
 
 In this section, we introduce the organizational structure of datasets, which should comply with the following structure.
 
@@ -102,7 +104,7 @@ In this section, we introduce the organizational structure of datasets, which sh
   
 We provide the download link for [preprocessed SIMS](https://pan.baidu.com/s/13Ax18SWnHRWCUJB2i8NsVw), `code: 4aa6`, `md5: 3befed5d2f6ea63a8402f5875ecb220d`, which follows the above requirements. You can get more datasets from [CMU-MultimodalSDK](http://immortal.multicomp.cs.cmu.edu/raw_datasets/processed_data/). It's worth noting that it is not necessary to put datasets and codes together.
 
-### Codes
+## Codes
 
 - Web Interface Codes
 
