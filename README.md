@@ -29,6 +29,10 @@ cd M-SENA-Backend
 
 ### 2. Install requirements
   -  Install mysql (version 5.7.32)
+    ```
+    apt install mysql-server
+    apt install default-libmysqlclient-dev
+    ```
   -  Install python requirements
 
     ```
