@@ -7,7 +7,7 @@ This project is the backend of the [M-SENA Platform](https://github.com/thuiar/M
 
 - [Installation](#installation)
   - [Docker](#docker)
-  - [Source code](#source-code)
+  - [From Source](#from-source)
 - [Reference](#reference)
   - [Datasets](#datasets)
   - [Codes](#codes)
@@ -16,7 +16,7 @@ This project is the backend of the [M-SENA Platform](https://github.com/thuiar/M
 
 ## Docker
 
-See [M-SENA-frontend](https://github.com/FlameSky-S/M-SENA-frontend#docker)
+We provide a [docker image](#) of our M-SENA Platform. See [M-SENA](https://github.com/FlameSky-S/M-SENA-frontend#docker) for instructions. 
 
 ## From Source
 
@@ -43,7 +43,7 @@ $ cd M-SENA-Backend
   $ pip install -r requirements.txt
   ```
     
-  - Download [Bert-Base, Chinese](https://storage.googleapis.com/bert_models/2018_11_03/chinese_L-12_H-768_A-12.zip) from [Google-Bert](https://github.com/google-research/bert). Then, convert Tensorflow into pytorch using [transformers-cli](https://huggingface.co/transformers/converting_tensorflow_models.html).   
+  - Download [Bert-Base, Chinese](https://storage.googleapis.com/bert_models/2018_11_03/chinese_L-12_H-768_A-12.zip) from [Google-Bert](https://github.com/google-research/bert). Then, convert Tensorflow into pytorch using [transformers-cli](https://huggingface.co/transformers/converting_tensorflow_models.html). Place the converted model under `MM-Codes/pretrained_model` directory.  
   - Install [Openface Toolkits](https://github.com/TadasBaltrusaitis/OpenFace/wiki)
 
 ### 3. Configure MySQL
@@ -76,12 +76,14 @@ $ cd M-SENA-Backend
 ### 5. Datasets 
 
   - Download datasets and locate them under `DATASET_ROOT_DIR` specified in `constants.py`
-  - Edit `config.json` file located in `DATASET_ROOT_DIR`
+  - Add information in `DATASET_ROOT_DIR/config.json` file to register the new dataset. 
   - Format datasets with `MM-Codes/data/DataPre.py`
   
   ```
   $ python MM-Codes/data/DataPre.py --working_dir $PATH_TO_DATASET --openface2Path $PATH_TO_OPENFACE2_FeatureExtraction_TOOL --language cn/en
   ```
+  
+  - The structure of the `DATASET_ROOT_DIR` directory is introduced in the [next](#datasets) section. 
 
 ### 6. Run
 
@@ -92,9 +94,9 @@ $ flask run --host=0.0.0.0
 
 # Reference
 
-## Datasets
+## Dataset Structure
 
-In this section, we introduce the organizational structure of datasets, which should comply with the following structure.
+The structure of the root dataset directory should look like this:
 
 ```txt
 .
@@ -142,13 +144,11 @@ In this section, we introduce the organizational structure of datasets, which sh
 
 - `**/Raw`: placing raw videos. The path of each clip should be consistent with `label.csv`.
   
-We provide the download link for [preprocessed SIMS](https://pan.baidu.com/s/13Ax18SWnHRWCUJB2i8NsVw), `code: 4aa6`, `md5: 3befed5d2f6ea63a8402f5875ecb220d`, which follows the above requirements. You can get more datasets from [CMU-MultimodalSDK](http://immortal.multicomp.cs.cmu.edu/raw_datasets/processed_data/). It's worth noting that it is not necessary to put datasets and codes together.
+We provide the download link for [preprocessed SIMS](https://pan.baidu.com/s/13Ax18SWnHRWCUJB2i8NsVw), `code: 4aa6`, `md5: 3befed5d2f6ea63a8402f5875ecb220d`, which follows the above requirements. You can get more datasets from [CMU-MultimodalSDK](http://immortal.multicomp.cs.cmu.edu/raw_datasets/processed_data/). 
 
-## Codes
+## Code Structure
 
-- Web Interface Codes
-
-In the backend, we use `Flask` + `Mysql` to provide the accessible requests.
+The source code is organized as follows: 
 
 ```txt
 .
@@ -158,8 +158,8 @@ In the backend, we use `Flask` + `Mysql` to provide the accessible requests.
 ├── config.py               # Basic config
 ├── config.sh               # Basic config
 ├── constants.py            # Global variable definition
-├── database.py             # Mysql database definition
-├── httpServer.py           # Dataset http server
+├── database.py             # Database definition & initialization
+├── httpServer.py           # Dataset server (for video previews)
 └── requirements.txt        # Python requirements
 ```
 
