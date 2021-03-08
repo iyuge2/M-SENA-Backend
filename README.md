@@ -9,8 +9,8 @@ This project is the backend of the [M-SENA Platform](https://github.com/thuiar/M
   - [Docker](#docker)
   - [From Source](#from-source)
 - [Reference](#reference)
-  - [Datasets](#datasets)
-  - [Codes](#codes)
+  - [Dataset Structure](#dataset-structure)
+  - [Code Structure](#code-structure)
 
 # Installation
 
