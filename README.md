@@ -29,17 +29,17 @@ cd M-SENA-Backend
 
 ### 2. Install requirements
   -  Install mysql (version 5.7.32)
-    ```
-    apt install mysql-server
-    apt install default-libmysqlclient-dev
-    ```
+
+  ```
+  apt install mysql-server default-libmysqlclient-dev
+  ```
   -  Install python requirements
 
-    ```
-    conda create --name sena python=3.6
-    source active sena
-    pip install -r requirements.txt
-    ```
+  ```
+  conda create --name sena python=3.6
+  source active sena
+  pip install -r requirements.txt
+  ```
     
   - Download [Bert-Base, Chinese](https://storage.googleapis.com/bert_models/2018_11_03/chinese_L-12_H-768_A-12.zip) from [Google-Bert](https://github.com/google-research/bert). Then, convert Tensorflow into pytorch using [transformers-cli](https://huggingface.co/transformers/converting_tensorflow_models.html)  
   - Install [Openface Toolkits](https://github.com/TadasBaltrusaitis/OpenFace/wiki)
