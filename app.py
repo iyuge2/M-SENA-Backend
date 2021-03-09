@@ -811,7 +811,7 @@ def get_live_results():
         for pre_trained_model in pre_trained_models:
             model_name, dataset_name = pre_trained_model.split('-')[0:2]
             other_args = {
-                'pre_trained_model': pre_trained_model,
+                'pre_trained_model': pre_trained_model + '.pth',
                 'modelName': model_name,
                 'datasetName': dataset_name,
                 'live_working_dir': working_dir,
@@ -827,8 +827,8 @@ def get_live_results():
         return {"code": ERROR_CODE, "msg": str(e)}
     finally:
         pass
-        # if os.path.exists(working_dir):
-        #     shutil.rmtree(working_dir)
+        if os.path.exists(working_dir):
+            shutil.rmtree(working_dir)
     return {"code": SUCCESS_CODE, "msg": "success", "result": results}
 
 
