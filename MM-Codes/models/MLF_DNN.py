@@ -4,6 +4,7 @@ import torch.nn.functional as F
 
 __all__ = ['MLF_DNN']
 
+
 class SubNet(nn.Module):
     '''
     The subnetwork that is used in TFN for video and audio in the pre-fusion stage
@@ -58,7 +59,8 @@ class TextSubNet(nn.Module):
         super(TextSubNet, self).__init__()
         if num_layers == 1:
             dropout = 0.0
-        self.rnn = nn.LSTM(in_size, hidden_size, num_layers=num_layers, dropout=dropout, bidirectional=bidirectional, batch_first=True)
+        self.rnn = nn.LSTM(in_size, hidden_size, num_layers=num_layers,
+                           dropout=dropout, bidirectional=bidirectional, batch_first=True)
         self.dropout = nn.Dropout(dropout)
         self.linear_1 = nn.Linear(hidden_size, out_size)
 
@@ -68,7 +70,7 @@ class TextSubNet(nn.Module):
             x: tensor of shape (batch_size, sequence_len, in_size)
         '''
         _, final_states = self.rnn(x)
-        h = self.dropout(final_states[0].squeeze())
+        h = self.dropout(final_states[0].squeeze(0))
         y_1 = self.linear_1(h)
         return y_1
 
@@ -77,6 +79,7 @@ class MLF_DNN(nn.Module):
     """
     late fusion using DNN
     """
+
     def __init__(self, args):
         super(MLF_DNN, self).__init__()
         self.text_in, self.audio_in, self.video_in = args.feature_dims
@@ -101,34 +104,47 @@ class MLF_DNN(nn.Module):
         self.post_video_dim = args.post_video_dim
 
         # define the pre-fusion subnetworks
-        self.audio_subnet = SubNet(self.audio_in, self.audio_hidden, self.audio_prob)
-        self.video_subnet = SubNet(self.video_in, self.video_hidden, self.video_prob)
-        self.text_subnet = TextSubNet(self.text_in, self.text_hidden, self.text_out, dropout=self.text_prob)
+        self.audio_subnet = SubNet(
+            self.audio_in, self.audio_hidden, self.audio_prob)
+        self.video_subnet = SubNet(
+            self.video_in, self.video_hidden, self.video_prob)
+        self.text_subnet = TextSubNet(
+            self.text_in, self.text_hidden, self.text_out, dropout=self.text_prob)
 
         # define the post_fusion layers
         self.post_fusion_dropout = nn.Dropout(p=self.post_fusion_prob)
-        self.post_fusion_layer_1 = nn.Linear(self.text_out + self.video_hidden + self.audio_hidden, self.post_fusion_dim)
-        self.post_fusion_layer_2 = nn.Linear(self.post_fusion_dim, self.post_fusion_dim)
-        self.post_fusion_layer_3 = nn.Linear(self.post_fusion_dim, args.num_classes)
+        self.post_fusion_layer_1 = nn.Linear(
+            self.text_out + self.video_hidden + self.audio_hidden, self.post_fusion_dim)
+        self.post_fusion_layer_2 = nn.Linear(
+            self.post_fusion_dim, self.post_fusion_dim)
+        self.post_fusion_layer_3 = nn.Linear(
+            self.post_fusion_dim, args.num_classes)
 
         # define the classify layer for text
         self.post_text_dropout = nn.Dropout(p=self.post_text_prob)
         self.post_text_layer_1 = nn.Linear(self.text_out, self.post_text_dim)
-        self.post_text_layer_2 = nn.Linear(self.post_text_dim, self.post_text_dim)
-        self.post_text_layer_3 = nn.Linear(self.post_text_dim, args.num_classes)
+        self.post_text_layer_2 = nn.Linear(
+            self.post_text_dim, self.post_text_dim)
+        self.post_text_layer_3 = nn.Linear(
+            self.post_text_dim, args.num_classes)
 
         # define the classify layer for audio
         self.post_audio_dropout = nn.Dropout(p=self.post_audio_prob)
-        self.post_audio_layer_1 = nn.Linear(self.audio_hidden, self.post_audio_dim)
-        self.post_audio_layer_2 = nn.Linear(self.post_audio_dim, self.post_audio_dim)
-        self.post_audio_layer_3 = nn.Linear(self.post_audio_dim, args.num_classes)
+        self.post_audio_layer_1 = nn.Linear(
+            self.audio_hidden, self.post_audio_dim)
+        self.post_audio_layer_2 = nn.Linear(
+            self.post_audio_dim, self.post_audio_dim)
+        self.post_audio_layer_3 = nn.Linear(
+            self.post_audio_dim, args.num_classes)
 
         # define the classify layer for video
         self.post_video_dropout = nn.Dropout(p=self.post_video_prob)
-        self.post_video_layer_1 = nn.Linear(self.video_hidden, self.post_video_dim)
-        self.post_video_layer_2 = nn.Linear(self.post_video_dim, self.post_video_dim)
-        self.post_video_layer_3 = nn.Linear(self.post_video_dim, args.num_classes)
-
+        self.post_video_layer_1 = nn.Linear(
+            self.video_hidden, self.post_video_dim)
+        self.post_video_layer_2 = nn.Linear(
+            self.post_video_dim, self.post_video_dim)
+        self.post_video_layer_3 = nn.Linear(
+            self.post_video_dim, args.num_classes)
 
     def forward(self, text_x, audio_x, video_x):
         audio_x = audio_x.squeeze(1)
