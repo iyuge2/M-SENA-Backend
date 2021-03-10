@@ -16,7 +16,7 @@ This project is the backend of the [M-SENA Platform](https://github.com/thuiar/M
 
 ## Docker
 
-We provide a [docker image](https://hub.docker.com/r/flamesky/m-sena-platform/) of our M-SENA Platform. See [M-SENA](https://github.com/FlameSky-S/M-SENA-frontend#docker) for instructions. 
+We provide a [docker image](https://hub.docker.com/r/flamesky/m-sena-platform/) of our platform. See the [main repo](https://github.com/thuiar/M-SENA#docker) for instructions. 
 
 ## From Source
 
