@@ -168,5 +168,5 @@ class MLive():
 
 if __name__ == "__main__":
     op = MLive('/home/iyuge2/Project/M-SENA/Datasets/tmp/0001/0001.mp4')
-    # op.dataPre()
-    op.getEmbeddings()
+    op.dataPre()
+    # op.getEmbeddings()

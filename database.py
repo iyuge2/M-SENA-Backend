@@ -1,15 +1,12 @@
+import argparse
 import os
 import shutil
-import argparse
+from datetime import datetime, timedelta
 
 from flask import Flask, request, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
-
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
-# from flask import Flask
-# from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime, timedelta
 
 from constants import *
 
@@ -17,6 +14,7 @@ from constants import *
 app = Flask(__name__)
 app.config.from_object(os.environ['APP_SETTINGS'])
 db = SQLAlchemy(app)
+
 
 class Dsample(db.Model):
     __tablename__ = "Dsample"
@@ -31,10 +29,11 @@ class Dsample(db.Model):
     label_value = db.Column(db.Float)
     annotation = db.Column(db.String(16))
     # -1 - unlabeled, 0 - human, 1 - machine, 2 - middle, 3 - hard
-    label_by = db.Column(db.Integer, nullable=False) 
+    label_by = db.Column(db.Integer, nullable=False)
 
     def __repr__(self):
         return str(self.__dict__)
+
 
 class Result(db.Model):
     __tablename__ = "Result"
@@ -43,7 +42,8 @@ class Result(db.Model):
     model_name = db.Column(db.String(32), nullable=False)
     # Tune, Normal
     is_tuning = db.Column(db.String(8), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow() + timedelta(hours=8))
+    created_at = db.Column(
+        db.DateTime, default=datetime.utcnow() + timedelta(hours=8))
     args = db.Column(db.String(MAX_ARGS_LEN), nullable=False, default="{}")
     save_model_path = db.Column(db.String(128))
     # final test results
@@ -58,6 +58,7 @@ class Result(db.Model):
     def __repr__(self):
         return str(self.__dict__)
 
+
 class SResults(db.Model):
     __tablename__ = "SResults"
     result_id = db.Column(db.Integer, primary_key=True, nullable=False)
@@ -67,6 +68,7 @@ class SResults(db.Model):
 
     def __repr__(self):
         return str(self.__dict__)
+
 
 class EResult(db.Model):
     # results for each epoch
@@ -79,6 +81,7 @@ class EResult(db.Model):
     def __repr__(self):
         return str(self.__dict__)
 
+
 class Task(db.Model):
     __tablename__ = "Task"
     task_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -88,18 +91,22 @@ class Task(db.Model):
     task_type = db.Column(db.Integer, nullable=False)
     task_pid = db.Column(db.Integer, nullable=False)
     # 0 -- 运行中，1 -- 已完成，2 -- 运行出错 3 -- 运行终止
-    state = db.Column(db.Integer, nullable=False) 
-    start_time = db.Column(db.DateTime, default=datetime.utcnow() + timedelta(hours=8))
-    end_time = db.Column(db.DateTime, default=datetime.utcnow() + timedelta(hours=8))
+    state = db.Column(db.Integer, nullable=False)
+    start_time = db.Column(
+        db.DateTime, default=datetime.utcnow() + timedelta(hours=8))
+    end_time = db.Column(
+        db.DateTime, default=datetime.utcnow() + timedelta(hours=8))
     message = db.Column(db.String(32))
 
     def __repr__(self):
         return str(self.__dict__)
 
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', type=str)
     return parser.parse_args()
+
 
 if __name__ == '__main__':
     arg = parse_args()
