@@ -7,52 +7,96 @@ This project is the backend of the [M-SENA Platform](https://github.com/thuiar/M
 
 - [Installation](#installation)
   - [Docker](#docker)
-  - [Source code](#source-code)
+  - [From Source](#from-source)
 - [Reference](#reference)
-  - [Datasets](#datasets)
-  - [Codes](#codes)
+  - [Dataset Structure](#dataset-structure)
+  - [Code Structure](#code-structure)
 
-## Installation
+# Installation
 
-### Docker
+## Docker
 
-See [M-SENA-frontend](https://github.com/FlameSky-S/M-SENA-frontend#docker)
+We provide a [docker image](https://hub.docker.com/r/flamesky/m-sena-platform/) of our platform. See the [main repo](https://github.com/thuiar/M-SENA#docker) for instructions. 
 
-### Source code
+## From Source
 
-- Clone the repository
+### 1. Clone this Repository
 
 ```shell
-git clone https://github.com/iyuge2/M-SENA-Backend.git
-cd M-SENA-Backend
+$ git clone https://github.com/iyuge2/M-SENA-Backend.git
+$ cd M-SENA-Backend
 ```
 
-- Install requirements
-  -  Install mysql (version 5.7.32)
-  -  Install python requirements
-    ```
-    conda create --name sena python=3.6
-    source active sena
-    pip install requirements.txt
-    ```
-  - Download [Bert-Base, Chinese](https://storage.googleapis.com/bert_models/2018_11_03/chinese_L-12_H-768_A-12.zip) from [Google-Bert](https://github.com/google-research/bert). Then, convert Tensorflow into pytorch using [transformers-cli](https://huggingface.co/transformers/converting_tensorflow_models.html)  
+### 2. Install Requirements
+
+  - Install system requirements
+
+  ```
+  $ apt install mysql-server default-libmysqlclient-dev libsndfile1
+  ```
+  
+  - Install python requirements
+
+  ```
+  $ conda create --name sena python=3.8
+  $ source active sena
+  $ pip install -r requirements.txt
+  ```
+    
+  - Download [Bert-Base, Chinese](https://storage.googleapis.com/bert_models/2018_11_03/chinese_L-12_H-768_A-12.zip) from [Google-Bert](https://github.com/google-research/bert). Then, convert Tensorflow into pytorch using [transformers-cli](https://huggingface.co/transformers/converting_tensorflow_models.html). Place the converted model under `MM-Codes/pretrained_model` directory.  
   - Install [Openface Toolkits](https://github.com/TadasBaltrusaitis/OpenFace/wiki)
 
-- Download datasets and format them using `MM-Codes/data/DataPre.py`
-- Update global variables in `constants.py`
-- Update basic config in `config.sh`
-- Run
+### 3. Configure MySQL
+
+  - Login MySQL with root
+
+  ```
+  $ mysql -u root -p
+  ```
+
+  - Create a database for M-SENA
+
+  ```
+  mysql> CREATE DATABASE sena;
+  ```
+  
+  - Create a user for M-SENA and grant privileges
+
+  ```
+  mysql> CREATE USER sena IDENTIFIED BY 'MyPassword';
+  mysql> GRANT ALL PRIVILEGES ON sena.* TO sena@`%`;
+  mysql> FLUSH PRIVILEGES;
+  ```
+
+### 4. Configs 
+
+  - Edit `Constants.py`. Alter `DATASET_ROOT_DIR`, `DATASET_SERVER_IP`, `OPENFACE_FEATURE_PATH`, `MM_CODES_PATH`, `MODEL_TMP_SAVE`, `AL_CODES_PATH` and `LIVE_TMP_PATH` to fit your settings. 
+  - Edit `config.sh`. Look for `DATABASE_URL` and change it to fit your database settings.
+
+### 5. Datasets 
+
+  - Download datasets and locate them under `DATASET_ROOT_DIR` specified in `constants.py`
+  - Add information in `DATASET_ROOT_DIR/config.json` file to register the new dataset. 
+  - Format datasets with `MM-Codes/data/DataPre.py`
+  
+  ```
+  $ python MM-Codes/data/DataPre.py --working_dir $PATH_TO_DATASET --openface2Path $PATH_TO_OPENFACE2_FeatureExtraction_TOOL --language cn/en
+  ```
+  
+  - The structure of the `DATASET_ROOT_DIR` directory is introduced in the [next](#datasets) section. 
+
+### 6. Run
 
 ```
-source config.sh
-flask run --host=0.0.0.0
+$ source config.sh
+$ flask run --host=0.0.0.0
 ```
 
-## Reference
+# Reference
 
-### Datasets
+## Dataset Structure
 
-In this section, we introduce the organizational structure of datasets, which should comply with the following structure.
+The structure of the root dataset directory should look like this:
 
 ```txt
 .
@@ -100,13 +144,11 @@ In this section, we introduce the organizational structure of datasets, which sh
 
 - `**/Raw`: placing raw videos. The path of each clip should be consistent with `label.csv`.
   
-We provide the download link for [preprocessed SIMS](https://pan.baidu.com/s/13Ax18SWnHRWCUJB2i8NsVw), `code: 4aa6`, `md5: 3befed5d2f6ea63a8402f5875ecb220d`, which follows the above requirements. You can get more datasets from [CMU-MultimodalSDK](http://immortal.multicomp.cs.cmu.edu/raw_datasets/processed_data/). It's worth noting that it is not necessary to put datasets and codes together.
+We provide the download link for [preprocessed SIMS](https://pan.baidu.com/s/13Ax18SWnHRWCUJB2i8NsVw), `code: 4aa6`, `md5: 3befed5d2f6ea63a8402f5875ecb220d`, which follows the above requirements. You can get more datasets from [CMU-MultimodalSDK](http://immortal.multicomp.cs.cmu.edu/raw_datasets/processed_data/). 
 
-### Codes
+## Code Structure
 
-- Web Interface Codes
-
-In the backend, we use `Flask` + `Mysql` to provide the accessible requests.
+The source code is organized as follows: 
 
 ```txt
 .
@@ -116,8 +158,8 @@ In the backend, we use `Flask` + `Mysql` to provide the accessible requests.
 ├── config.py               # Basic config
 ├── config.sh               # Basic config
 ├── constants.py            # Global variable definition
-├── database.py             # Mysql database definition
-├── httpServer.py           # Dataset http server
+├── database.py             # Database definition & initialization
+├── httpServer.py           # Dataset server (for video previews)
 └── requirements.txt        # Python requirements
 ```
 

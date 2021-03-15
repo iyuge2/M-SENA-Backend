@@ -3,9 +3,9 @@
         "LF_DNN": {
             "args": {
                 "MOSI": {
-                    "need_data_aligned": false,
-                    "need_model_aligned": false,
-                    "need_normalized": true,
+                    "data_aligned": false,
+                    "model_aligned": false,
+                    "normalized": true,
                     "early_stop": 12,
                     "weight_decay": 0,
                     "hidden_dim_t": 128,
@@ -824,7 +824,7 @@
                         0
                     ],
                     "KeyEval": "Loss"
-               }
+                }
             },
             "paper_name": "CH-SIMS: A Chinese Multimodal Sentiment Analysis Dataset with Fine-grained Annotations of Modality",
             "paper_url": "https://www.aclweb.org/anthology/2020.acl-main.343.pdf",

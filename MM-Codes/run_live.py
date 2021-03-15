@@ -33,6 +33,7 @@ def softmax(x):
     return softmax_x.tolist()
 
 def run_live(args):
+    print(args)
     args['text_language'] = args['language']
     args.pop('language', None)
     # load args
@@ -52,8 +53,8 @@ def run_live(args):
     setup_seed(args.seed)
     model = AMIO(args)
     pretrained_model_path = os.path.join(MODEL_TMP_SAVE, args.pre_trained_model)
-    if os.path.exists(pretrained_model_path):
-        model.load_state_dict(torch.load(pretrained_model_path))
+    # if os.path.exists(pretrained_model_path):
+    model.load_state_dict(torch.load(pretrained_model_path))
     
     # data pre
     dp = MLive(args.live_working_dir, args.transcript, args.text_language)
@@ -95,14 +96,14 @@ def run_live(args):
     return ret
 
 if __name__ == "__main__":
-    pre_trained_model = 'LF_DNN-MOSI-87.pth'
+    pre_trained_model = 'MLF_DNN-SIMS-107.pth'
     model_name, dataset_name = pre_trained_model.split('-')[0:2]
     other_args = {
         'pre_trained_model': pre_trained_model,
         'modelName': model_name,
         'datasetName': dataset_name,
-        'live_working_dir': os.path.join(MM_CODES_PATH, 'tmp_dir/1612112844023'),
-        'transcript': "What a brilliant idea!",
-        'language': "English"
+        'live_working_dir': os.path.join(MM_CODES_PATH, 'tmp_dir/1614251422871'),
+        'transcript': "这个苹果有问题，不好吃",
+        'language': "Chinese"
     }
-    print(run_live(other_args))
+    run_live(other_args)
