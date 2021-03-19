@@ -32,7 +32,7 @@ $ cd M-SENA-Backend
   - Install system requirements
 
   ```
-  $ apt install mysql-server default-libmysqlclient-dev libsndfile1
+  $ apt install mysql-server default-libmysqlclient-dev libsndfile1 ffmpeg
   ```
   
   - Install python requirements
@@ -78,6 +78,7 @@ $ cd M-SENA-Backend
   - Download datasets and locate them under `DATASET_ROOT_DIR` specified in `constants.py`
   - Add information in `DATASET_ROOT_DIR/config.json` file to register the new dataset. 
   - Format datasets with `MM-Codes/data/DataPre.py`
+  - For datasets that needs labeling, the config file locates in `AL-Codes` directory. 
   
   ```
   $ python MM-Codes/data/DataPre.py --working_dir $PATH_TO_DATASET --openface2Path $PATH_TO_OPENFACE2_FeatureExtraction_TOOL --language cn/en
