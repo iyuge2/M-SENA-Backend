@@ -1,0 +1,61 @@
+2021-10-05 09:57:31,432 - app - ========================= Program Started =========================
+2021-10-05 09:58:32,200 - app - ========================= Program Started =========================
+2021-10-05 09:59:57,494 - app - ========================= Program Started =========================
+2021-10-05 10:15:18,009 - app - ========================= Program Started =========================
+2021-10-05 10:18:19,661 - app - API called: /task/getTaskList
+2021-10-05 10:18:19,673 - app - (MySQLdb._exceptions.OperationalError) (2002, "Can't connect to local MySQL server through socket '/tmp/mysql.sock' (2)")
+(Background on this error at: https://sqlalche.me/e/14/e3q8)
+2021-10-05 10:18:38,463 - app - API called: /task/getTaskList
+2021-10-05 10:18:38,463 - app - (MySQLdb._exceptions.OperationalError) (2002, "Can't connect to local MySQL server through socket '/tmp/mysql.sock' (2)")
+(Background on this error at: https://sqlalche.me/e/14/e3q8)
+2021-10-05 11:09:02,464 - app - API called: /task/getTaskList
+2021-10-05 11:09:02,476 - app - (MySQLdb._exceptions.OperationalError) (2002, "Can't connect to local MySQL server through socket '/tmp/mysql.sock' (2)")
+(Background on this error at: https://sqlalche.me/e/14/e3q8)
+2021-10-05 11:16:53,187 - app - API called: /task/getTaskList
+2021-10-05 11:16:53,198 - app - (MySQLdb._exceptions.OperationalError) (2002, "Can't connect to local MySQL server through socket '/tmp/mysql.sock' (2)")
+(Background on this error at: https://sqlalche.me/e/14/e3q8)
+2021-10-05 11:19:49,654 - app - API called: /task/getTaskList
+2021-10-05 11:19:49,654 - app - (MySQLdb._exceptions.OperationalError) (2002, "Can't connect to local MySQL server through socket '/tmp/mysql.sock' (2)")
+(Background on this error at: https://sqlalche.me/e/14/e3q8)
+2021-10-05 11:19:59,850 - app - API called: /task/getTaskList
+2021-10-05 11:19:59,861 - app - (MySQLdb._exceptions.OperationalError) (2002, "Can't connect to local MySQL server through socket '/tmp/mysql.sock' (2)")
+(Background on this error at: https://sqlalche.me/e/14/e3q8)
+2021-10-05 11:22:06,039 - app - API called: /task/getTaskList
+2021-10-05 11:22:06,065 - app - (MySQLdb._exceptions.ProgrammingError) (1146, "Table 'sena.Task' doesn't exist")
+[SQL: SELECT `Task`.task_id AS `Task_task_id`, `Task`.dataset_name AS `Task_dataset_name`, `Task`.model_name AS `Task_model_name`, `Task`.task_type AS `Task_task_type`, `Task`.task_pid AS `Task_task_pid`, `Task`.state AS `Task_state`, `Task`.start_time AS `Task_start_time`, `Task`.end_time AS `Task_end_time`, `Task`.message AS `Task_message` 
+FROM `Task`]
+(Background on this error at: https://sqlalche.me/e/14/f405)
+2021-10-05 11:23:28,879 - app - API called: /task/getTaskList
+2021-10-05 11:23:34,957 - app - API called: /dataEnd/getDatasetList
+2021-10-05 11:23:35,941 - app - API called: /dataEnd/getDatasetList
+2021-10-05 11:23:36,627 - app - API called: /dataEnd/getDatasetList
+2021-10-05 11:23:39,921 - app - API called: /dataEnd/scanDatasets
+2021-10-05 11:23:52,894 - app - [Errno 2] No such file or directory: '/home/sharing/disk3/Datasets/MMSA-Standard/DemoDataset/label.csv'
+2021-10-05 11:23:59,641 - app - API called: /task/getTaskList
+2021-10-05 11:23:59,643 - app - API called: /dataEnd/getDatasetList
+2021-10-05 11:25:16,885 - app - API called: /dataEnd/scanDatasets
+2021-10-05 11:25:16,886 - app - Expecting property name enclosed in double quotes: line 125 column 1 (char 3469)
+2021-10-05 11:25:30,797 - app - API called: /task/getTaskList
+2021-10-05 11:25:30,800 - app - API called: /dataEnd/getDatasetList
+2021-10-05 11:25:30,801 - app - Expecting property name enclosed in double quotes: line 125 column 1 (char 3469)
+2021-10-05 11:25:54,356 - app - API called: /task/getTaskList
+2021-10-05 11:25:54,359 - app - API called: /dataEnd/getDatasetList
+2021-10-05 11:26:58,175 - app - API called: /dataEnd/getDatasetList
+2021-10-05 14:04:27,900 - app - ========================= Program Started =========================
+2021-10-05 14:05:09,213 - app - API called: /dataEnd/getDetails
+2021-10-05 14:05:09,215 - app - API called: /dataEnd/getMetaData
+2021-10-05 14:05:24,367 - app - ========================= Program Started =========================
+2021-10-05 14:05:34,947 - app - API called: /dataEnd/getDatasetList
+2021-10-05 14:05:37,570 - app - API called: /dataEnd/getDetails
+2021-10-05 14:05:37,574 - app - API called: /dataEnd/getMetaData
+2021-10-05 14:05:44,656 - app - API called: /dataEnd/getDatasetList
+2021-10-05 14:07:37,414 - app - API called: /dataEnd/getDetails
+2021-10-05 14:07:37,418 - app - API called: /dataEnd/getMetaData
+2021-10-06 14:21:46,022 - app - ========================= Program Started =========================
+2021-10-06 14:21:51,022 - app - API called: /dataEnd/getDatasetList
+2021-10-06 14:21:51,649 - app - API called: /dataEnd/getDatasetList
+2021-10-06 14:22:01,036 - app - API called: /task/getTaskList
+2021-10-06 14:22:01,040 - app - API called: /dataEnd/getDatasetList
+2021-10-06 14:22:04,755 - app - API called: /dataEnd/scanDatasets
+2021-10-06 14:22:04,770 - app - 'label_by' is an invalid keyword argument for Dsample
+2021-10-06 14:25:35,952 - app - API called: /dataEnd/getDatasetList
