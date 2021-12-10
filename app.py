@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 import os
@@ -11,16 +12,20 @@ from datetime import datetime, timedelta
 from glob import glob
 from logging.handlers import RotatingFileHandler
 
+import numpy as np
 import pandas as pd
+from Crypto.Cipher import AES
+from Crypto.Util import Padding
 from flask import Flask, make_response, request
-# from flask_login import LoginManager
 from flask_sqlalchemy import SQLAlchemy
 from pytz import timezone
-from sqlalchemy import and_, asc, desc, not_, or_
+from sqlalchemy import and_, asc, desc, not_, or_, func
+from sqlalchemy.dialects.mysql import insert
+from sqlalchemy.sql.coercions import LabeledColumnExprImpl
 from tqdm import tqdm
 
 from constants import *
-from database import Dsample, EResult, Result, Task, User
+from database import Annotation, Dsample, EResult, Result, Task, User, Feature
 from httpServer import run_http_server
 from MMSA.run_live import run_live
 
@@ -50,34 +55,117 @@ app.config.from_object(APP_SETTINGS)
 
 db = SQLAlchemy(app)
 
-# login_manager = LoginManager()
-# login_manager.init_app(app)
-# login_manager.login_view = 'login'
 
 
 """
 User
 """
 
+def check_token(token):
+    key = app.secret_key.encode()
+    cipher = AES.new(key, AES.MODE_ECB)
+    de_text = base64.decodebytes(token.encode())
+    de_text = cipher.decrypt(de_text)
+    de_text = Padding.unpad(de_text, 16)
+    de_text = de_text.decode()
+    username, expire = de_text.split('@')
+    expire = datetime.fromtimestamp(float(expire))
+    res = db.session.query(User.is_admin).filter(User.user_name==username).first()
+    if res is not None and expire > datetime.now():
+        is_admin = res.is_admin
+        return username, is_admin
+    else:
+        return None, None
+
+
 @app.route('/user/login', methods=['POST'])
 def login():
     logger.debug("API called: /user/login")
-    username = json.loads(request.get_data())['username']
-    password = json.loads(request.get_data())['password']
-    res = db.session.query(User.user_id).filter(user_name=username).filter(password=password)
-    if res is not None:
-        end = (datetime.now() + timedelta(minutes=30)).timestamp()
-        text = username + '@' + str(end)
-        key = app.secret_key
-        
-    else:
-        pass
+    try:
+        username = json.loads(request.get_data())['username']
+        password = json.loads(request.get_data())['password']
+        res = db.session.query(User.user_id).filter(and_(User.user_name==username, User.password==password))
+        if res.first() is not None:
+            expire = (datetime.now() + timedelta(hours=24)).timestamp()
+            # expire = (datetime.now() + timedelta(seconds=30)).timestamp()
+            text = username + '@' + str(expire)
+            key = app.secret_key.encode()
+            text = Padding.pad(text.encode(), 16)
+            cipher = AES.new(key, AES.MODE_ECB)
+            en_text = cipher.encrypt(text)
+            en_text = base64.encodebytes(en_text)
+            en_text = en_text.decode()
+            return {'code': SUCCESS_CODE, 'msg': 'success', 'token': en_text}
+        else:
+            return {'code': SUCCESS_CODE, 'msg': 'Login Failed'}
+    except Exception as e:
+        logger.error(e)
+        return {"code": ERROR_CODE, "msg": str(e)}
 
 
+@app.route('/user/verifyToken', methods=['POST'])
+def verify_token():
+    logger.debug("API called: /user/verifyToken")
+    try:
+        token = json.loads(request.get_data())['token']
+        username, is_admin = check_token(token)
+        if username is not None:
+            return {'code': SUCCESS_CODE, 'msg': 'success', 'is_admin':is_admin, 'user_name': username}
+        else:
+            return {'code': SUCCESS_CODE, 'msg': 'fail', 'is_admin': False, 'user_name': None}
+    except Exception as e:
+        logger.error(e)
+        return {"code": ERROR_CODE, "msg": str(e)}
 
-@app.route('/user/logout', methods=['POST'])
-def logout():
-    logger.debug("API called: /user/logout")
+
+@app.route('/user/getUserList', methods=['POST'])
+def get_user_list():
+    logger.debug("API called: /user/getUserList")
+    try:
+        token = json.loads(request.get_data())['token']
+        _, is_admin = check_token(token)
+        if is_admin != True:
+            raise RuntimeError('Authentication Error')
+
+        query = db.session.query(User.user_id, User.user_name, User.is_admin).all()
+        res = [u._asdict() for u in query]
+        return {'code': SUCCESS_CODE, 'msg': 'success', 'data': res}
+    except Exception as e:
+        logger.error(e)
+        return {"code": ERROR_CODE, "msg": str(e)}
+
+
+@app.route('/user/addUser', methods=['POST'])
+def add_user():
+    """
+        Add or edit user info.
+    """
+    logger.debug("API called: /user/addUser")
+    try:
+        request_data = json.loads(request.get_data())
+        token = request_data['token']
+        _, is_admin = check_token(token)
+        if is_admin != True:
+            raise RuntimeError('Authentication Error')
+
+        username = request_data['username']
+        password = request_data['password']
+        is_admin = request_data['isAdmin']
+        insert_stmt = insert(User).values(
+                    user_name = username,
+                    password = password,
+                    is_admin = is_admin,
+                )
+        on_duplicate_key_update_stmt = insert_stmt.on_duplicate_key_update(
+                    password = password,
+                    is_admin = is_admin,
+                )
+        db.session.execute(on_duplicate_key_update_stmt)
+        db.session.commit()
+        return {'code': SUCCESS_CODE, 'msg': 'success'}
+    except Exception as e:
+        logger.error(e)
+        return {"code": ERROR_CODE, "msg": str(e)}
 
 
 
@@ -85,24 +173,28 @@ def logout():
 Data-End
 """
 
-@app.route('/dataEnd/scanDatasets', methods=['GET'])
+@app.route('/dataEnd/scanDatasets', methods=['POST'])
 def scan_datasets():
     logger.debug("API called: /dataEnd/scanDatasets")
     try:
+        token = json.loads(request.get_data())['token']
+        _, is_admin = check_token(token)
+        if is_admin != True:
+            raise RuntimeError('Authentication Error')
+
         with open(os.path.join(DATASET_ROOT_DIR, 'config.json'), 'r') as fp:
             dataset_config = json.load(fp)
 
         for dataset_name, configs in dataset_config.items():
-            db.session.query(Dsample).filter_by(
-                dataset_name=dataset_name).delete()
             # scan dataset for sample table
             label_df = pd.read_csv(os.path.join(DATASET_ROOT_DIR, configs['label_path']),
                                    dtype={"video_id": "str", "clip_id": "str", "text": "str"})
+            label_df = label_df.replace({np.nan: None})
 
             for i in tqdm(range(len(label_df))):
-                video_id, clip_id, text, label, annotation, mode, label_by = \
-                    label_df.loc[i, ['video_id', 'clip_id', 'text',
-                                     'label', 'annotation', 'mode', 'label_by']]
+                video_id, clip_id, text, label, annotation, mode, label_T, label_A, label_V= \
+                    label_df.loc[i, ['video_id', 'clip_id', 'text', 'label', 'annotation',
+                                     'mode', 'label_T', 'label_A', 'label_V']]
 
                 if len(text) > SQL_MAX_TEXT_LEN:
                     text = text[:SQL_MAX_TEXT_LEN-10]
@@ -110,19 +202,30 @@ def scan_datasets():
                 cur_video_path = os.path.join(configs['raw_video_dir'], video_id,
                                               clip_id+"." + configs['video_format'])
                 # print(video_id, clip_id, text, label, annotation, mode)
-                payload = Dsample(
-                    dataset_name=dataset_name,
-                    video_id=video_id,
-                    clip_id=clip_id,
-                    video_path=cur_video_path,
-                    text=text,
-                    data_mode=mode,
-                    label_value=label,
-                    annotation=annotation,
-                    label_by=label_by
+                insert_stmt = insert(Dsample).values(
+                    dataset_name = dataset_name,
+                    video_id = video_id,
+                    clip_id = clip_id,
+                    video_path = cur_video_path,
+                    text = text,
+                    data_mode = mode,
+                    label_value = label,
+                    annotation = annotation,
+                    label_T = label_T,
+                    label_A = label_A,
+                    label_V = label_V
                 )
-                db.session.add(payload)
-
+                on_duplicate_key_update_stmt = insert_stmt.on_duplicate_key_update(
+                    video_path = cur_video_path,
+                    text = text,
+                    data_mode = mode,
+                    label_value = label,
+                    annotation = annotation,
+                    label_T = label_T,
+                    label_A = label_A,
+                    label_V = label_V
+                )
+                db.session.execute(on_duplicate_key_update_stmt)
             db.session.commit()
     except Exception as e:
         logger.error(e)
@@ -134,21 +237,26 @@ def scan_datasets():
 def update_datasets():
     logger.debug("API called: /dataEnd/updateDataset")
     try:
+        token = json.loads(request.get_data())['token']
+        _, is_admin = check_token(token)
+        if is_admin != True:
+            raise RuntimeError('Authentication Error')
+
         dataset_name = json.loads(request.get_data())['datasetName']
         with open(os.path.join(DATASET_ROOT_DIR, 'config.json'), 'r') as fp:
             dataset_config = json.load(fp)
 
         configs = dataset_config[dataset_name]
 
-        db.session.query(Dsample).filter_by(dataset_name=dataset_name).delete()
         # scan dataset for sample table
         label_df = pd.read_csv(os.path.join(DATASET_ROOT_DIR, configs['label_path']),
                                dtype={"video_id": "str", "clip_id": "str", "text": "str"})
+        label_df = label_df.replace({np.nan: None})
 
         for i in tqdm(range(len(label_df))):
-            video_id, clip_id, text, label, annotation, mode, label_by = \
-                label_df.loc[i, ['video_id', 'clip_id', 'text',
-                                 'label', 'annotation', 'mode', 'label_by']]
+            video_id, clip_id, text, label, annotation, mode, label_T, label_A, label_V = \
+                label_df.loc[i, ['video_id', 'clip_id', 'text', 'label', 'annotation', 
+                                 'mode', 'label_T', 'label_A', 'label_V']]
 
             if len(text) > SQL_MAX_TEXT_LEN:
                 text = text[:SQL_MAX_TEXT_LEN-10]
@@ -156,18 +264,30 @@ def update_datasets():
             cur_video_path = os.path.join(configs['raw_video_dir'], video_id,
                                           clip_id+"." + configs['video_format'])
             # print(video_id, clip_id, text, label, annotation, mode)
-            payload = Dsample(
-                dataset_name=dataset_name,
-                video_id=video_id,
-                clip_id=clip_id,
-                video_path=cur_video_path,
-                text=text,
-                data_mode=mode,
-                label_value=label,
-                annotation=annotation,
-                label_by=label_by
+            insert_stmt = insert(Dsample).values(
+                dataset_name = dataset_name,
+                video_id = video_id,
+                clip_id = clip_id,
+                video_path = cur_video_path,
+                text = text,
+                data_mode = mode,
+                label_value = label,
+                annotation = annotation,
+                label_T = label_T,
+                label_A = label_A,
+                label_V = label_V
             )
-            db.session.add(payload)
+            on_duplicate_key_update_stmt = insert_stmt.on_duplicate_key_update(
+                video_path = cur_video_path,
+                text = text,
+                data_mode = mode,
+                label_value = label,
+                annotation = annotation,
+                label_T = label_T,
+                label_A = label_A,
+                label_V = label_V
+            )
+            db.session.execute(on_duplicate_key_update_stmt)
 
         db.session.commit()
     except Exception as e:
@@ -183,12 +303,12 @@ def get_datasets_info():
         data = json.loads(request.get_data())
 
         res = []
-        sample = db.session.query(Dsample).first()
-        if sample:
-            with open(os.path.join(DATASET_ROOT_DIR, 'config.json'), 'r') as fp:
-                dataset_config = json.load(fp)
+        datasets = [r.dataset_name for r in db.session.query(Dsample.dataset_name).distinct()]
+        with open(os.path.join(DATASET_ROOT_DIR, 'config.json'), 'r') as fp:
+            dataset_config = json.load(fp)
 
-            for k, dataset in dataset_config.items():
+        for k, dataset in dataset_config.items():
+            if k in datasets:
                 p = {}
                 if data['unlocked'] == False or \
                         (data['unlocked'] and dataset['is_locked'] == False):
@@ -213,7 +333,6 @@ def get_meta_data():
     try:
         dataset_name = json.loads(request.get_data())['datasetName']
 
-        # print(page, pageSize)
         with open(os.path.join(DATASET_ROOT_DIR, 'config.json'), 'r') as fp:
             dataset = json.load(fp)[dataset_name]
 
@@ -223,21 +342,14 @@ def get_meta_data():
         res['language'] = dataset['language']
         res['description'] = dataset['description']
 
-        samples = db.session.query(Dsample).filter_by(
-            dataset_name=dataset_name).all()
+        samples = db.session.query(Dsample).filter_by(dataset_name=dataset_name)
 
-        res['totalCount'] = len(samples)
-
-        label_bys = [sample.label_by for sample in samples]
-        label_bys = Counter(label_bys)
-        tmp = {}
-        for k, v in label_bys.items():
-            tmp[LABEL_BY_I2N[k]] = v
-        res['difficultyCount'] = tmp
+        res['totalCount'] = samples.count()
+        unlabeld_count = samples.filter_by(annotation=None).count()
+        res['labeled'] = res['totalCount'] - unlabeld_count
 
         annotations = [sample.annotation for sample in samples]
         res['classCount'] = Counter(annotations)
-
         modes = [sample.data_mode for sample in samples]
         res['typeCount'] = Counter(modes)
     except Exception as e:
@@ -251,56 +363,44 @@ def get_dataset_details():
     logger.debug("API called: /dataEnd/getDetails")
     try:
         data = json.loads(request.get_data())
-        dataset_name = data['datasetName']
-        page, pageSize = data['pageNo'], data['pageSize']
+        page, page_size = data['pageNo'], data['pageSize']
 
         samples = db.session.query(Dsample).filter_by(
             dataset_name=data['datasetName'])
-        if data['difficulty_filter'] != 'All':
-            samples = samples.filter_by(
-                label_by=LABEL_BY_N2I[data['difficulty_filter']])
+        totol_count = samples.count()
         if data['sentiment_filter'] != 'All':
             samples = samples.filter_by(annotation=data['sentiment_filter'])
         if data['data_mode_filter'] != 'All':
             samples = samples.filter_by(data_mode=data['data_mode_filter'])
         if data['id_filter'] != '':
             samples = samples.filter_by(video_id=data['id_filter'])
+        samples = samples.limit(page_size).offset((page - 1) * page_size).all()
 
-        samples = samples.all()
-
-        ret = []
+        res = []
         for sample in samples:
             p = sample.__dict__.copy()
             p.pop('_sa_instance_state', None)
-            p['annotation'] = LABEL_NAME_I2N[p['label_value']
-                                             ] if p['label_by'] in [0, 1] else '-'
-            p['prediction'] = LABEL_NAME_I2N[p['label_value']
-                                             ] if p['label_by'] not in [0, 1] else '-'
-            p['need_human'] = False if p['label_by'] in [0, 1] else True
+            for k,v in p.items():
+                if v == None:
+                    p[k] = '-'
             p['video_url'] = os.path.join(DATASET_SERVER_IP, p['video_path'])
-            p['difficulty'] = LABEL_BY_I2N[p['label_by']]
-            # drop
-            p.pop('label_by', None)
-            p.pop('label_value', None)
-            ret.append(p)
+            res.append(p)
 
-        totolCount = len(ret)
-        start_i = (page - 1) * pageSize
-        if start_i > totolCount:
-            return {"code": ERROR_CODE, "msg": 'page error!'}
-        end_i = (start_i + pageSize) if (start_i +
-                                         pageSize) <= totolCount else totolCount
-        ret = ret[start_i:end_i]
     except Exception as e:
         logger.error(e)
         return {"code": ERROR_CODE, "msg": str(e)}
-    return {"code": SUCCESS_CODE, "msg": "success", "data": ret, "totalCount": totolCount}
+    return {"code": SUCCESS_CODE, "msg": "success", "data": res, "totalCount": totol_count}
 
 
 @app.route('/dataEnd/unlockDataset', methods=["POST"])
 def unlock_dataset():
     logger.debug("API called: /dataEnd/unlockDataset")
     try:
+        token = json.loads(request.get_data())['token']
+        _, is_admin = check_token(token)
+        if is_admin != True:
+            raise RuntimeError('Authentication Error')
+
         dataset_name = json.loads(request.get_data())['datasetName']
         with open(os.path.join(DATASET_ROOT_DIR, 'config.json'), 'r') as fp:
             dataset_config = json.load(fp)
@@ -318,6 +418,11 @@ def unlock_dataset():
 def lock_dataset():
     logger.debug("API called: /dataEnd/lockDataset")
     try:
+        token = json.loads(request.get_data())['token']
+        _, is_admin = check_token(token)
+        if is_admin != True:
+            raise RuntimeError('Authentication Error')
+
         dataset_name = json.loads(request.get_data())['datasetName']
         with open(os.path.join(DATASET_ROOT_DIR, 'config.json'), 'r') as fp:
             dataset_config = json.load(fp)
@@ -331,87 +436,407 @@ def lock_dataset():
     return {"code": SUCCESS_CODE, "msg": 'success'}
 
 
+
 """
 DATA-Labeling
 """
 
-
-@app.route('/dataEnd/submitLabelResult', methods=["POST"])
-def update_label():
-    logger.debug("API called: /dataEnd/submitLabelResult")
+@app.route('/dataEnd/getUsersForAssignment', methods=['POST'])
+def get_users_for_assignment():
+    logger.debug("API called: /dataEnd/getUsersForAssignment")
     try:
-        results = json.loads(request.get_data())['resultList']
-        # print(results)
-        for res in results:
-            if res['annotation'] in LABEL_NAME_N2I.keys():
-                sample = db.session.query(Dsample).get(res['sample_id'])
-                sample.label_value = LABEL_NAME_N2I[res['annotation']]
-                sample.annotation = res['annotation']
-                sample.label_by = 0
+        request_data = json.loads(request.get_data())
+        token = request_data['token']
+        _, is_admin = check_token(token)
+        if is_admin != True:
+            raise RuntimeError('Authentication Error')
+
+        dataset_name = request_data['datasetName']
+        query_user = db.session.query(User.user_name)
+        users = [u.user_name for u in query_user.all()]
+        if 'admin' in users:
+            users.remove('admin')
+        assigned = []
+        for user in users:
+            query = db.session.query(Annotation).filter(and_(
+                Annotation.user_name == user,
+                Annotation.dataset_name == dataset_name,
+            ))
+            assigned.append(query.count())
+        res = []
+        for i, user in enumerate(users):
+            res.append({
+                'num': i,
+                'username': user,
+                'assigned': assigned[i],
+            })
+        return {"code": SUCCESS_CODE, "msg": 'success', "data": res}
+        
+    except Exception as e:
+        logger.error(e)
+        return {"code": ERROR_CODE, "msg": str(e)}
+
+
+@app.route('/dataEnd/assignTasks', methods=['POST'])
+def assign_tasks():
+    logger.debug("API called: /dataEnd/assignTasks")
+    try:
+        token = json.loads(request.get_data())['token']
+        _, is_admin = check_token(token)
+        if is_admin != True:
+            raise RuntimeError('Authentication Error')
+        
+        dataset_name = json.loads(request.get_data())['dataset_name']
+        users = json.loads(request.get_data())['users']
+        res = db.session.query(Dsample.video_id, Dsample.clip_id).filter_by(dataset_name=dataset_name)
+        video_ids = [v.video_id for v in res.all()]
+        clip_ids = [c.clip_id for c in res.all()]
+        for user in users:
+            for i, v_id in enumerate(video_ids):
+                db.session.execute(f"""
+                                    INSERT IGNORE INTO `Annotation` 
+                                    (`user_name`, `dataset_name`, `video_id`, `clip_id`)
+                                    VALUES ('{user}', '{dataset_name}', '{v_id}', '{clip_ids[i]}');
+                                    """)
         db.session.commit()
+        return {"code": SUCCESS_CODE, "msg": 'success'}
     except Exception as e:
         logger.error(e)
         return {"code": ERROR_CODE, "msg": str(e)}
-    return {"code": SUCCESS_CODE, "msg": 'success'}
 
 
-@app.route('/dataEnd/getHardSamples', methods=["POST"])
-def get_hard_samples():
-    logger.debug("API called: /dataEnd/getHardSamples")
+@app.route('/dataEnd/calculateLables', methods=['POST'])
+def calculate_lables():
+    logger.debug("API called: /dataEnd/calculateLables")
     try:
-        datasetName = json.loads(request.get_data())['datasetName']
-        samples = db.session.query(Dsample).filter_by(dataset_name=datasetName).filter(
-            or_(Dsample.label_by == -1, Dsample.label_by == 2, Dsample.label_by == 3)).all()
-        if len(samples) > MANUAL_LABEL_BATCH_SIZE:
-            samples = samples[:MANUAL_LABEL_BATCH_SIZE]
-        # print(len(samples))
+        request_data = json.loads(request.get_data())
+        token = request_data['token']
+        _, is_admin = check_token(token)
+        if is_admin != True:
+            raise RuntimeError('Authentication Error')
 
-        data = []
-        for sample in samples:
-            cur_d = {
-                "sample_id": sample.sample_id,
-                "text": sample.text,
-                "video_url": os.path.join(DATASET_SERVER_IP, sample.video_path),
-                "annotation": ''
-            }
-            data.append(cur_d)
+        dataset_name = request_data['datasetName']
+        threshold = request_data['threshold']
+        query_0 = db.session.query (Dsample.video_id, Dsample.clip_id).filter(
+            Dsample.dataset_name == dataset_name
+        ).all()
+        for row in tqdm(query_0):
+            v_id, c_id = row
+            query_1 = db.session.query(
+                Annotation.label_T, Annotation.label_A, Annotation.label_V,Annotation.label_M
+            ).filter(and_(
+                Annotation.dataset_name == dataset_name,
+                Annotation.video_id == v_id,
+                Annotation.clip_id == c_id,
+            ))
+            df = pd.read_sql(query_1.statement, query_1.session.bind)
+            avg = df.mean()
+            res = []
+            for label in df:
+                if df[label].count() >= threshold:
+                    res.append(avg[label])
+                else:
+                    res.append(None)
+            query_2 = db.session.query(Dsample).filter(and_(
+                Dsample.dataset_name == dataset_name,
+                Dsample.video_id == v_id,
+                Dsample.clip_id == c_id,
+            )).update({
+                'label_T': res[0], 
+                'label_A': res[1], 
+                'label_V': res[2], 
+                'label_value': res[3]
+            }, synchronize_session=False)
+        db.session.commit()
+        return {"code": SUCCESS_CODE, "msg": 'success'}
     except Exception as e:
         logger.error(e)
         return {"code": ERROR_CODE, "msg": str(e)}
-    return {"code": SUCCESS_CODE, "msg": 'success', "data": data}
 
 
-@app.route('/dataEnd/startActiveLearning', methods=["POST"])
-def run_activeLearning():
-    logger.debug("API called: /dataEnd/startActiveLearning")
+@app.route('/dataEnd/exportUserLabels', methods=['POST'])
+def export_user_labels():
+    logger.debug("API called: /dataEnd/exportUserLabels")
     try:
-        data = json.loads(request.get_data())
+        request_data = json.loads(request.get_data())
+        token = request_data['token']
+        _, is_admin = check_token(token)
+        if is_admin != True:
+            raise RuntimeError('Authentication Error')
 
-        payload = Task(
-            dataset_name=data['datasetName'],
-            model_name=data['classifier'],
-            task_type=0,
-            task_pid=10000,
-            state=0
+        dataset_name = request_data['datasetName']
+        # TODO
+
+    except Exception as e:
+        logger.error(e)
+        return {"code": ERROR_CODE, "msg": str(e)}
+
+
+@app.route('/dataEnd/getLabelingDetails', methods=['POST'])
+def get_labeling_details():
+    logger.debug("API called: /dataEnd/getLabelingDetails")
+    try:
+        request_data = json.loads(request.get_data())
+        token = request_data['token']
+        _, is_admin = check_token(token)
+        if is_admin != True:
+            raise RuntimeError('Authentication Error')
+
+        dataset_name = request_data['datasetName']
+        id_filter = request_data['idFilter']
+        pageNo = request_data['pageNo']
+        pageSize = request_data['pageSize']
+        samples = db.session.query(
+            Annotation.video_id, Annotation.clip_id
+        ).filter_by(
+            dataset_name=dataset_name
+        ).group_by(
+            Annotation.video_id, Annotation.clip_id
         )
+        if id_filter != '':
+            samples = samples.filter(Annotation.video_id == id_filter)
+        total = samples.count()
+        samples = samples.paginate(pageNo, pageSize, False)
+        res = []
+        for sample in samples.items:
+            result = db.session.query(Annotation).filter(
+                and_(
+                    Annotation.dataset_name == dataset_name,
+                    Annotation.video_id == sample.video_id,
+                    Annotation.clip_id == sample.clip_id,
+                )
+            )
+            assigned = result.count()
+            label_T = result.filter(Annotation.label_T != None).count()
+            label_A = result.filter(Annotation.label_A != None).count()
+            label_V = result.filter(Annotation.label_V != None).count()
+            label_M = result.filter(Annotation.label_M != None).count()
+            res.append({
+                'video_id': sample.video_id,
+                'clip_id': sample.clip_id,
+                'assigned': assigned,
+                'label_T': label_T,
+                'label_A': label_A,
+                'label_V': label_V,
+                'label_M': label_M,
+                'status': 'Finished' if assigned == label_T == label_A == label_V == label_M else 'Labeling'
+            })
+        return {"code": SUCCESS_CODE, "msg": 'success', "data": res, "totalCount": total}
 
-        db.session.add(payload)
-        db.session.commit()
-        task_id = payload.task_id
-        # db.session.commit()
+    except Exception as e:
+        logger.error(e)
+        return {"code": ERROR_CODE, "msg": str(e)}
 
-        cmd_page = [
-            'python', os.path.join(AL_CODES_PATH, 'run.py'),
-            '--use_db', 'True',
-            '--classifier', data['classifier'],
-            '--selector', data['selector'],
-            '--datasetName', data['datasetName'],
-            '--task_id', str(task_id)
-        ]
-        p = subprocess.Popen(cmd_page, close_fds=True)
-        print(p.pid)
 
-        payload.task_pid = p.pid
+@app.route('/dataEnd/getMyProgress', methods=['POST'])
+def get_my_progress():
+    logger.debug("API called: /dataEnd/getMyProgress")
+    try:
+        token = json.loads(request.get_data())['token']
+        username, _ = check_token(token)
+        dataset_name = json.loads(request.get_data())['datasetName']
+        all = db.session.query(Annotation).filter(and_(
+            Annotation.user_name == username, 
+            Annotation.dataset_name == dataset_name
+        )).count()
+        text = db.session.query(Annotation).filter(and_(
+            Annotation.user_name == username, 
+            Annotation.dataset_name == dataset_name,
+            Annotation.label_T != None
+        )).count()
+        audio = db.session.query(Annotation).filter(and_(
+            Annotation.user_name == username, 
+            Annotation.dataset_name == dataset_name,
+            Annotation.label_A != None
+        )).count()
+        video = db.session.query(Annotation).filter(and_(
+            Annotation.user_name == username, 
+            Annotation.dataset_name == dataset_name,
+            Annotation.label_V != None
+        )).count()
+        multi = db.session.query(Annotation).filter(and_(
+            Annotation.user_name == username, 
+            Annotation.dataset_name == dataset_name,
+            Annotation.label_M != None
+        )).count()
+        res = {
+            'all': all,
+            'text': text,
+            'audio': audio,
+            'video': video,
+            'multi': multi
+        }
+        return {"code": SUCCESS_CODE, "msg": 'success', 'data': res}
+        
+    except Exception as e:
+        logger.error(e)
+        return {"code": ERROR_CODE, "msg": str(e)}
+
+
+@app.route('/dataEnd/getAllProgress', methods=['POST'])
+def get_all_progress():
+    logger.debug("API called: /dataEnd/getAllProgress")
+    try:
+        token = json.loads(request.get_data())['token']
+        username, is_admin = check_token(token)
+        dataset_name = json.loads(request.get_data())['datasetName']
+        users = []
+        label_T = []
+        label_A = []
+        label_V = []
+        label_M = []
+        res_users = db.session.query(Annotation.user_name).distinct().all()
+        for row in res_users:
+            users.append(row.user_name)
+            label_T.append(db.session.query(Annotation).filter(and_(
+                Annotation.user_name == row.user_name,
+                Annotation.dataset_name == dataset_name,
+                Annotation.label_T != None,
+            )).count())
+            label_A.append(db.session.query(Annotation).filter(and_(
+                Annotation.user_name == row.user_name,
+                Annotation.dataset_name == dataset_name,
+                Annotation.label_A != None,
+            )).count())
+            label_V.append(db.session.query(Annotation).filter(and_(
+                Annotation.user_name == row.user_name,
+                Annotation.dataset_name == dataset_name,
+                Annotation.label_V != None,
+            )).count())
+            label_M.append(db.session.query(Annotation).filter(and_(
+                Annotation.user_name == row.user_name,
+                Annotation.dataset_name == dataset_name,
+                Annotation.label_M != None,
+            )).count())
+        
+        data = {
+            'users': users,
+            'label_T': label_T,
+            'label_A': label_A,
+            'label_V': label_V,
+            'label_M': label_M,
+        }
+        return { "code": SUCCESS_CODE, "msg": 'success', "data": data}
+
+    except Exception as e:
+        logger.error(e)
+        return {"code": ERROR_CODE, "msg": str(e)}
+
+
+@app.route('/dataEnd/getTextSample', methods=['POST'])
+def get_text_samples():
+    """
+        Get next unlabeled text sample.
+    """
+    logger.debug("API called: /dataEnd/getTextSample")
+    try:
+        request_data = json.loads(request.get_data())
+        token = request_data['token']
+        username, _ = check_token(token)
+        dataset_name = request_data['datasetName']
+        # current_video_id = request_data['currentVideoID']
+        # current_clip_id = request_data['currentClipID']
+        res = db.session.query(Annotation.video_id, Annotation.clip_id).filter(
+            and_(
+                Annotation.user_name == username, 
+                Annotation.dataset_name == dataset_name, 
+                Annotation.label_T == None
+            )
+        ).limit(1).first()
+        if res:
+            video_id, clip_id = res
+            text = db.session.query(Dsample.text).filter(and_(
+                Dsample.dataset_name == dataset_name,
+                Dsample.video_id == video_id,
+                Dsample.clip_id == clip_id
+            )).first().text
+            data = {
+                'dataset_name':dataset_name,
+                'video_id': video_id,
+                'clip_id': clip_id,
+                'transcript': text
+            }
+            return { "code": SUCCESS_CODE, "msg": 'success', "data": data }
+        else:
+            return { "code": SUCCESS_CODE, "msg": 'no more', "data": None }
+    except Exception as e:
+        logger.error(e)
+        return {"code": ERROR_CODE, "msg": str(e)}
+
+
+@app.route('/dataEnd/getTextSampleNext', methods=['POST'])
+def get_text_samples_next():
+    """
+        Get next or previous text sample
+    """
+    logger.debug("API called: /dataEnd/getTextSamplePrev")
+    try:
+        request_data = json.loads(request.get_data())
+        token = request_data['token']
+        username, _ = check_token(token)
+        dataset_name = request_data['datasetName']
+        current_video_id = request_data['currentVideoID']
+        current_clip_id = request_data['currentClipID']
+        mode = request_data['mode']
+        res = db.session.query(Annotation.id, Annotation.video_id, Annotation.clip_id, Annotation.label_T).filter(
+            and_(
+                Annotation.user_name == username, 
+                Annotation.dataset_name == dataset_name, 
+            )
+        )
+        res2 = res.filter(and_(
+            Annotation.video_id == current_video_id, 
+            Annotation.clip_id == current_clip_id
+        ))
+        current_id = res2.first().id
+        if mode == 'prev':
+            res3 = res.filter(Annotation.id < current_id).order_by(Annotation.id.desc()).limit(1).first()
+        elif mode == 'next':
+            res3 = res.filter(Annotation.id > current_id).order_by(Annotation.id.asc()).limit(1).first()
+        else:
+            raise RuntimeError(f"Invalid argument 'mode': {mode}")
+        if res3:
+            prev_id = res3.id
+            _, video_id, clip_id, label = res.filter(
+                Annotation.id == prev_id).first()
+            text = db.session.query(Dsample.text).filter(and_(
+                Dsample.dataset_name == dataset_name,
+                Dsample.video_id == video_id,
+                Dsample.clip_id == clip_id
+            )).first().text
+            data = {
+                'dataset_name':dataset_name,
+                'video_id': video_id,
+                'clip_id': clip_id,
+                'transcript': text,
+                'label_T': label
+            }
+            return { "code": SUCCESS_CODE, "msg": 'success', "data": data }
+        else:
+            return { "code": SUCCESS_CODE, "msg": 'no more', "data": None}
+    except Exception as e:
+        logger.error(e)
+        return {"code": ERROR_CODE, "msg": str(e)}
+
+
+@app.route('/dataEnd/submitTextLabel', methods=["POST"])
+def submit_text_label():
+    logger.debug("API called: /dataEnd/submitTextLabel")
+    try:
+        request_data = json.loads(request.get_data())
+        token = request_data['token']
+        username, _ = check_token(token)
+        dataset_name = request_data['datasetName']
+        current_video_id = request_data['currentVideoID']
+        current_clip_id = request_data['currentClipID']
+        label = request_data['label']
+        
+        db.session.query(Annotation).filter(
+            Annotation.user_name == username,
+            Annotation.dataset_name == dataset_name,
+            Annotation.video_id == current_video_id,
+            Annotation.clip_id == current_clip_id
+        ).update({'label_T': label}, synchronize_session=False)
         db.session.commit()
     except Exception as e:
         logger.error(e)
@@ -419,74 +844,357 @@ def run_activeLearning():
     return {"code": SUCCESS_CODE, "msg": 'success'}
 
 
-@app.route('/dataEnd/getALModels', methods=["GET"])
-def get_classifier():
-    logger.debug("API called: /dataEnd/getALModels")
+@app.route('/dataEnd/getAudioSample', methods=['POST'])
+def get_audio_samples():
+    """
+        Get next unlabeled audio sample.
+    """
+    logger.debug("API called: /dataEnd/getAudioSample")
     try:
-        with open(os.path.join(AL_CODES_PATH, 'config.json'), 'r') as fp:
-            config = json.load(fp)
-            classfiers = list(config["classifiers"].keys())
-            selectors = list(config["selectors"].keys())
+        request_data = json.loads(request.get_data())
+        token = request_data['token']
+        username, _ = check_token(token)
+        dataset_name = request_data['datasetName']
+        res = db.session.query(Annotation.video_id, Annotation.clip_id).filter(
+            and_(
+                Annotation.user_name == username, 
+                Annotation.dataset_name == dataset_name, 
+                Annotation.label_A == None
+            )
+        ).limit(1).first()
+        if res:
+            video_id, clip_id = res
+            with open(os.path.join(DATASET_ROOT_DIR, 'config.json'), 'r') as fp:
+                dataset_config = json.load(fp)
+            audio_dir = dataset_config[dataset_name]['audio_for_label_dir']
+            audio_format = dataset_config[dataset_name]['audio_format']
+            data = {
+                'dataset_name':dataset_name,
+                'video_id': video_id,
+                'clip_id': clip_id,
+                'audio_url': os.path.join(DATASET_SERVER_IP, audio_dir, video_id, clip_id + '.' + audio_format)
+            }
+            return { "code": SUCCESS_CODE, "msg": 'success', "data": data }
+        else:
+            return { "code": SUCCESS_CODE, "msg": 'no more', "data": None }
     except Exception as e:
         logger.error(e)
         return {"code": ERROR_CODE, "msg": str(e)}
-    return {"code": SUCCESS_CODE, "msg": "success", "classifierList": classfiers, "selectorList": selectors}
 
 
-@app.route('/dataEnd/getClassifierConfig', methods=["POST"])
-def get_classifier_config():
-    logger.debug("API called: /dataEnd/getClassifierConfig")
+@app.route('/dataEnd/getAudioSampleNext', methods=['POST'])
+def get_audio_samples_next():
+    """
+        Get next or previous audio sample
+    """
+    logger.debug("API called: /dataEnd/getAudioSamplePrev")
     try:
-        classifier_name = json.loads(request.get_data())['classifier']
-        with open(os.path.join(AL_CODES_PATH, 'config.json'), 'r') as fp:
-            config = json.load(fp)["classifiers"][classifier_name]
+        request_data = json.loads(request.get_data())
+        token = request_data['token']
+        username, _ = check_token(token)
+        dataset_name = request_data['datasetName']
+        current_video_id = request_data['currentVideoID']
+        current_clip_id = request_data['currentClipID']
+        mode = request_data['mode']
+        res = db.session.query(Annotation.id, Annotation.video_id, Annotation.clip_id, Annotation.label_A).filter(
+            and_(
+                Annotation.user_name == username, 
+                Annotation.dataset_name == dataset_name, 
+            )
+        )
+        res2 = res.filter(and_(
+            Annotation.video_id == current_video_id, 
+            Annotation.clip_id == current_clip_id
+        ))
+        current_id = res2.first().id
+        if mode == 'prev':
+            res3 = res.filter(Annotation.id < current_id).order_by(Annotation.id.desc()).limit(1).first()
+        elif mode == 'next':
+            res3 = res.filter(Annotation.id > current_id).order_by(Annotation.id.asc()).limit(1).first()
+        else:
+            raise RuntimeError(f"Invalid argument 'mode': {mode}")
+        if res3:
+            prev_id = res3.id
+            _, video_id, clip_id, label = res.filter(
+                Annotation.id == prev_id).first()
+            with open(os.path.join(DATASET_ROOT_DIR, 'config.json'), 'r') as fp:
+                dataset_config = json.load(fp)
+            audio_dir = dataset_config[dataset_name]['audio_for_label_dir']
+            audio_format = dataset_config[dataset_name]['audio_format']
+            data = {
+                'dataset_name':dataset_name,
+                'video_id': video_id,
+                'clip_id': clip_id,
+                'audio_url': os.path.join(DATASET_SERVER_IP, audio_dir, video_id, clip_id + '.' + audio_format),
+                'label_A': label
+            }
+            return { "code": SUCCESS_CODE, "msg": 'success', "data": data }
+        else:
+            return { "code": SUCCESS_CODE, "msg": 'no more', "data": None}
     except Exception as e:
         logger.error(e)
         return {"code": ERROR_CODE, "msg": str(e)}
-    return {"code": SUCCESS_CODE, "msg": "success", "args": json.dumps(config['args'])}
 
 
-@app.route('/dataEnd/getSelectorConfig', methods=["POST"])
-def get_selector_config():
-    logger.debug("API called: /dataEnd/getSelectorConfig")
+@app.route('/dataEnd/submitAudioLabel', methods=["POST"])
+def submit_audio_label():
+    logger.debug("API called: /dataEnd/submitAudioLabel")
     try:
-        selector_name = json.loads(request.get_data())['selector']
-        with open(os.path.join(AL_CODES_PATH, 'config.json'), 'r') as fp:
-            config = json.load(fp)["selectors"][selector_name]
-    except Exception as e:
-        logger.error(e)
-        return {"code": ERROR_CODE, "msg": str(e)}
-    return {"code": SUCCESS_CODE, "msg": "success", "args": json.dumps(config['args'])}
-
-
-@app.route('/dataEnd/saveClassifierConfig', methods=['POST'])
-def save_classifier_config():
-    logger.debug("API called: /dataEnd/saveClassifierConfig")
-    try:
-        data = json.loads(request.get_data())
-        with open(os.path.join(AL_CODES_PATH, 'config.json'), 'r') as fp:
-            config = json.load(fp)
-        config['classifiers'][data['classifier']
-                              ]['args'] = json.loads(data['args'])
-        with open(os.path.join(AL_CODES_PATH, 'config.json'), 'w') as fp:
-            config = json.dump(config, fp, indent=4)
+        request_data = json.loads(request.get_data())
+        token = request_data['token']
+        username, _ = check_token(token)
+        dataset_name = request_data['datasetName']
+        current_video_id = request_data['currentVideoID']
+        current_clip_id = request_data['currentClipID']
+        label = request_data['label']
+        
+        db.session.query(Annotation).filter(
+            Annotation.user_name == username,
+            Annotation.dataset_name == dataset_name,
+            Annotation.video_id == current_video_id,
+            Annotation.clip_id == current_clip_id
+        ).update({'label_A': label}, synchronize_session=False)
+        db.session.commit()
     except Exception as e:
         logger.error(e)
         return {"code": ERROR_CODE, "msg": str(e)}
     return {"code": SUCCESS_CODE, "msg": 'success'}
 
 
-@app.route('/dataEnd/saveSelectorConfig', methods=['POST'])
-def save_selector_config():
-    logger.debug("API called: /dataEnd/saveSelectorConfig")
+@app.route('/dataEnd/getVideoSample', methods=['POST'])
+def get_video_samples():
+    """
+        Get next unlabeled video sample.
+    """
+    logger.debug("API called: /dataEnd/getVideoSample")
     try:
-        data = json.loads(request.get_data())
-        with open(os.path.join(AL_CODES_PATH, 'config.json'), 'r') as fp:
-            config = json.load(fp)
-        config['selectors'][data['selector']
-                            ]['args'] = json.loads(data['args'])
-        with open(os.path.join(AL_CODES_PATH, 'config.json'), 'w') as fp:
-            config = json.dump(config, fp, indent=4)
+        request_data = json.loads(request.get_data())
+        token = request_data['token']
+        username, _ = check_token(token)
+        dataset_name = request_data['datasetName']
+        res = db.session.query(Annotation.video_id, Annotation.clip_id).filter(
+            and_(
+                Annotation.user_name == username, 
+                Annotation.dataset_name == dataset_name, 
+                Annotation.label_V == None
+            )
+        ).limit(1).first()
+        if res:
+            video_id, clip_id = res
+            video_path = db.session.query(Dsample.video_path).filter(and_(
+                Dsample.dataset_name == dataset_name,
+                Dsample.video_id == video_id,
+                Dsample.clip_id == clip_id
+            )).first().video_path
+            data = {
+                'dataset_name':dataset_name,
+                'video_id': video_id,
+                'clip_id': clip_id,
+                'video_url': os.path.join(DATASET_SERVER_IP, video_path)
+            }
+            return { "code": SUCCESS_CODE, "msg": 'success', "data": data }
+        else:
+            return { "code": SUCCESS_CODE, "msg": 'no more', "data": None }
+    except Exception as e:
+        logger.error(e)
+        return {"code": ERROR_CODE, "msg": str(e)}
+
+
+@app.route('/dataEnd/getVideoSampleNext', methods=['POST'])
+def get_video_samples_next():
+    """
+        Get next or previous video sample
+    """
+    logger.debug("API called: /dataEnd/getVideoSamplePrev")
+    try:
+        request_data = json.loads(request.get_data())
+        token = request_data['token']
+        username, _ = check_token(token)
+        dataset_name = request_data['datasetName']
+        current_video_id = request_data['currentVideoID']
+        current_clip_id = request_data['currentClipID']
+        mode = request_data['mode']
+        res = db.session.query(Annotation.id, Annotation.video_id, Annotation.clip_id, Annotation.label_V).filter(
+            and_(
+                Annotation.user_name == username, 
+                Annotation.dataset_name == dataset_name, 
+            )
+        )
+        res2 = res.filter(and_(
+            Annotation.video_id == current_video_id, 
+            Annotation.clip_id == current_clip_id
+        ))
+        current_id = res2.first().id
+        if mode == 'prev':
+            res3 = res.filter(Annotation.id < current_id).order_by(Annotation.id.desc()).limit(1).first()
+        elif mode == 'next':
+            res3 = res.filter(Annotation.id > current_id).order_by(Annotation.id.asc()).limit(1).first()
+        else:
+            raise RuntimeError(f"Invalid argument 'mode': {mode}")
+        if res3:
+            prev_id = res3.id
+            _, video_id, clip_id, label = res.filter(
+                Annotation.id == prev_id).first()
+            video_path = db.session.query(Dsample.video_path).filter(and_(
+                Dsample.dataset_name == dataset_name,
+                Dsample.video_id == video_id,
+                Dsample.clip_id == clip_id
+            )).first().video_path
+            data = {
+                'dataset_name':dataset_name,
+                'video_id': video_id,
+                'clip_id': clip_id,
+                'video_url': os.path.join(DATASET_SERVER_IP, video_path),
+                'label_V': label
+            }
+            return { "code": SUCCESS_CODE, "msg": 'success', "data": data }
+        else:
+            return { "code": SUCCESS_CODE, "msg": 'no more', "data": None}
+    except Exception as e:
+        logger.error(e)
+        return {"code": ERROR_CODE, "msg": str(e)}
+
+
+@app.route('/dataEnd/submitVideoLabel', methods=["POST"])
+def submit_video_label():
+    logger.debug("API called: /dataEnd/submitVideoLabel")
+    try:
+        request_data = json.loads(request.get_data())
+        token = request_data['token']
+        username, _ = check_token(token)
+        dataset_name = request_data['datasetName']
+        current_video_id = request_data['currentVideoID']
+        current_clip_id = request_data['currentClipID']
+        label = request_data['label']
+        
+        db.session.query(Annotation).filter(
+            Annotation.user_name == username,
+            Annotation.dataset_name == dataset_name,
+            Annotation.video_id == current_video_id,
+            Annotation.clip_id == current_clip_id
+        ).update({'label_V': label}, synchronize_session=False)
+        db.session.commit()
+    except Exception as e:
+        logger.error(e)
+        return {"code": ERROR_CODE, "msg": str(e)}
+    return {"code": SUCCESS_CODE, "msg": 'success'}
+
+
+@app.route('/dataEnd/getMultiSample', methods=['POST'])
+def get_multi_samples():
+    """
+        Get next unlabeled multimodal sample.
+    """
+    logger.debug("API called: /dataEnd/getMultiSample")
+    try:
+        request_data = json.loads(request.get_data())
+        token = request_data['token']
+        username, _ = check_token(token)
+        dataset_name = request_data['datasetName']
+        res = db.session.query(Annotation.video_id, Annotation.clip_id).filter(
+            and_(
+                Annotation.user_name == username, 
+                Annotation.dataset_name == dataset_name, 
+                Annotation.label_M == None
+            )
+        ).limit(1).first()
+        if res:
+            video_id, clip_id = res
+            video_path, text = db.session.query(Dsample.video_path, Dsample.text).filter(and_(
+                Dsample.dataset_name == dataset_name,
+                Dsample.video_id == video_id,
+                Dsample.clip_id == clip_id
+            )).first()
+            data = {
+                'dataset_name':dataset_name,
+                'video_id': video_id,
+                'clip_id': clip_id,
+                'transcript': text,
+                'video_url': os.path.join(DATASET_SERVER_IP, video_path)
+            }
+            return { "code": SUCCESS_CODE, "msg": 'success', "data": data }
+        else:
+            return { "code": SUCCESS_CODE, "msg": 'no more', "data": None }
+    except Exception as e:
+        logger.error(e)
+        return {"code": ERROR_CODE, "msg": str(e)}
+
+
+@app.route('/dataEnd/getMultiSampleNext', methods=['POST'])
+def get_multi_samples_next():
+    """
+        Get next or previous multimodal sample
+    """
+    logger.debug("API called: /dataEnd/getMultiSamplePrev")
+    try:
+        request_data = json.loads(request.get_data())
+        token = request_data['token']
+        username, _ = check_token(token)
+        dataset_name = request_data['datasetName']
+        current_video_id = request_data['currentVideoID']
+        current_clip_id = request_data['currentClipID']
+        mode = request_data['mode']
+        res = db.session.query(Annotation.id, Annotation.video_id, Annotation.clip_id, Annotation.label_M).filter(
+            and_(
+                Annotation.user_name == username, 
+                Annotation.dataset_name == dataset_name, 
+            )
+        )
+        res2 = res.filter(and_(
+            Annotation.video_id == current_video_id, 
+            Annotation.clip_id == current_clip_id
+        ))
+        current_id = res2.first().id
+        if mode == 'prev':
+            res3 = res.filter(Annotation.id < current_id).order_by(Annotation.id.desc()).limit(1).first()
+        elif mode == 'next':
+            res3 = res.filter(Annotation.id > current_id).order_by(Annotation.id.asc()).limit(1).first()
+        else:
+            raise RuntimeError(f"Invalid argument 'mode': {mode}")
+        if res3:
+            prev_id = res3.id
+            _, video_id, clip_id, label = res.filter(
+                Annotation.id == prev_id).first()
+            video_path, text = db.session.query(Dsample.video_path, Dsample.text).filter(and_(
+                Dsample.dataset_name == dataset_name,
+                Dsample.video_id == video_id,
+                Dsample.clip_id == clip_id
+            )).first()
+            data = {
+                'dataset_name':dataset_name,
+                'video_id': video_id,
+                'clip_id': clip_id,
+                'transcript': text,
+                'video_url': os.path.join(DATASET_SERVER_IP, video_path),
+                'label_M': label
+            }
+            return { "code": SUCCESS_CODE, "msg": 'success', "data": data }
+        else:
+            return { "code": SUCCESS_CODE, "msg": 'no more', "data": None}
+    except Exception as e:
+        logger.error(e)
+        return {"code": ERROR_CODE, "msg": str(e)}
+
+
+@app.route('/dataEnd/submitMultiLabel', methods=["POST"])
+def submit_multi_label():
+    logger.debug("API called: /dataEnd/submitMultiLabel")
+    try:
+        request_data = json.loads(request.get_data())
+        token = request_data['token']
+        username, _ = check_token(token)
+        dataset_name = request_data['datasetName']
+        current_video_id = request_data['currentVideoID']
+        current_clip_id = request_data['currentClipID']
+        label = request_data['label']
+        
+        db.session.query(Annotation).filter(
+            Annotation.user_name == username,
+            Annotation.dataset_name == dataset_name,
+            Annotation.video_id == current_video_id,
+            Annotation.clip_id == current_clip_id
+        ).update({'label_M': label}, synchronize_session=False)
+        db.session.commit()
     except Exception as e:
         logger.error(e)
         return {"code": ERROR_CODE, "msg": str(e)}
@@ -496,6 +1204,7 @@ def save_selector_config():
 @app.route('/dataEnd/exportLabels', methods=['POST'])
 def export_labels():
     logger.debug("API called: /dataEnd/exportLabels")
+    # TODO: rewrite this function
     try:
         dataset_name = json.loads(request.get_data())['datasetName']
         samples = db.Query(Dsample).filter_by(dataset_name=dataset_name).all()
@@ -523,6 +1232,125 @@ def export_labels():
         df['label_by'] = new_label_bys
         df['annotation'] = new_annotations
         df.to_csv(label_path, index=None, encoding='utf-8')
+    except Exception as e:
+        logger.error(e)
+        return {"code": ERROR_CODE, "msg": str(e)}
+    return {"code": SUCCESS_CODE, "msg": 'success'}
+
+
+"""
+Feature-End
+"""
+
+
+@app.route('/featureEnd/getFeatureList', methods=['POST'])
+def get_feature_list():
+    logger.debug("API called: /featureEnd/getFeatureList")
+    try:
+        request_data = json.loads(request.get_data())
+        dataset_name = request_data['datasetName']
+        feature_name = request_data['featureName']
+        feature_T = request_data['featureT']
+        feature_A = request_data['featureA']
+        feature_V = request_data['featureV']
+        query_result = db.session.query(
+            Feature.id, Feature.feature_name, Feature.dataset_name, Feature.feature_T,
+            Feature.feature_A, Feature.feature_V, Feature.description
+        )
+        for filter_item in ['dataset_name', 'feature_T', 'feature_A', 'feature_V']:
+            if eval(filter_item) != '':
+                query_result = query_result.filter(getattr(Feature, filter_item) == eval(filter_item))
+        if feature_name != '':
+            query_result = query_result.filter(Feature.feature_name.like(f'%{feature_name}%'))
+        res = []
+        for result in query_result:
+            res.append(result._asdict())
+    except Exception as e:
+        logger.error(e)
+        return {"code": ERROR_CODE, "msg": str(e)}
+    return {"code": SUCCESS_CODE, "msg": 'success', "data": res, "total": len(res)}
+
+
+@app.route('/featureEnd/scanDefaultFeatures', methods=['POST'])
+def scan_default_features():
+    logger.debug("API called: /featureEnd/scanDefaultFeatures")
+    try:
+        token = json.loads(request.get_data())['token']
+        _, is_admin = check_token(token)
+        if is_admin != True:
+            raise RuntimeError('Authentication Error')
+
+        # load config file
+        with open(os.path.join(DATASET_ROOT_DIR, 'config.json'), 'r') as fp:
+            config = json.load(fp)
+        for dataset_name in config:
+            try:
+                for feature_type in config[dataset_name]['features']:
+                    feature_name = 'Default_' + feature_type
+                    try:
+                        feature_config = config[dataset_name]['features'][feature_type]
+                        if feature_config['feature_path'] == '':
+                            continue
+                        feature_path = os.path.join(DATASET_ROOT_DIR, feature_config['feature_path'])
+                        feature_description = feature_config['description'] if 'description' in feature_config else None
+                        payload = Feature(
+                            dataset_name=dataset_name,
+                            feature_name=feature_name,
+                            feature_path=feature_path,
+                            description=feature_description
+                        )
+                        db.session.add(payload)
+                    except Exception:
+                        continue
+            except Exception:
+                continue
+        db.session.commit()
+    except Exception as e:
+        logger.error(e)
+        return {"code": ERROR_CODE, "msg": str(e)}
+    return {"code": SUCCESS_CODE, "msg": 'success'}
+
+
+@app.route('/featureEnd/removeInvalidFeatures', methods=['GET'])
+def remove_invalid_features():
+    logger.debug("API called: /featureEnd/removeInvalidFeatures")
+    try:
+        token = json.loads(request.get_data())['token']
+        _, is_admin = check_token(token)
+        if is_admin != True:
+            raise RuntimeError('Authentication Error')
+        
+        query_result = db.session.query(Feature.id, Feature.feature_path)
+        for row in query_result:
+            if not os.path.isfile(row.feature_path):
+                db.session.query(Feature).filter_by(id=row.id).delete(synchronize_session=False)
+        db.session.commit()
+    except Exception as e:
+        logger.error(e)
+        return {"code": ERROR_CODE, "msg": str(e)}
+    return {"code": SUCCESS_CODE, "msg": 'success'}
+
+
+@app.route('/featureEnd/removeFeatures', methods=['POST'])
+def remove_features():
+    logger.debug("API called: /featureEnd/removeFeatures")
+    try:
+        request_data = json.loads(request.get_data())
+        ids = request_data['id']
+        db.session.query(Feature).filter(Feature.id.in_(ids)).delete(synchronize_session=False)
+        db.session.commit()
+    except Exception as e:
+        logger.error(e)
+        return {"code": ERROR_CODE, "msg": str(e)}
+    return {"code": SUCCESS_CODE, "msg": 'success'}
+
+
+@app.route('/featureEnd/startExtracting', methods=['POST'])
+def start_extracting():
+    logger.debug("API called: /featureEnd/startExtracting")
+    try:
+        request_data = json.loads(request.get_data())
+        # TODO
     except Exception as e:
         logger.error(e)
         return {"code": ERROR_CODE, "msg": str(e)}
