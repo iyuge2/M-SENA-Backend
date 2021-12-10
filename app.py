@@ -436,7 +436,6 @@ def lock_dataset():
     return {"code": SUCCESS_CODE, "msg": 'success'}
 
 
-
 """
 DATA-Labeling
 """
@@ -1850,7 +1849,6 @@ def del_unrun_tasks():
         logger.error(e)
         return {"code": ERROR_CODE, "msg": str(e)}
     return {"code": SUCCESS_CODE, "msg": 'success'}
-
 
 
 @app.after_request

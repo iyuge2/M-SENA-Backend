@@ -1,0 +1,67 @@
+{
+    "classifiers": {
+        "TFN": {
+            "args": {
+                "use_bert": false,
+                "aligned": false,
+                "normalized": true,
+                "valid_size": 0.2,
+                "early_stop": 8,
+                "weight_decay": 0,
+                "hidden_dim_t": 256,
+                "hidden_dim_a": 32,
+                "hidden_dim_v": 256,
+                "text_out": 64,
+                "post_fusion_dim": 16,
+                "dropouts_a": 0.2,
+                "dropouts_v": 0.2,
+                "dropouts_t": 0.2,
+                "dropouts_f": 0.3,
+                "batch_size": 32,
+                "learning_rate": 0.0005,
+                "grad_clip": 0,
+                "seed": 1234,
+                "num_workers": 0,
+                "gpu_ids": [
+                    0
+                ],
+                "KeyEval": "Loss"
+            }
+        }
+    },
+    "selectors": {
+        "CONF":{
+            "args":{
+                "sift": "ratio",
+                "select_threshold": [0.85, 0.15]
+            }
+        },
+        "MARGIN":{
+            "args":{
+                "sift": "ratio"
+            }
+        },
+        "ENTROPY":{
+            "args":{
+                "sift": "ratio"
+            }
+        }
+    },
+    "data": {
+        "DemoDataset": {
+            "label_path": "/home/sharing/disk3/dataset/multimodal-sentiment-dataset/StandardDatasets/DemoDataset/label.csv",
+            "feature_path": "/home/sharing/disk3/dataset/multimodal-sentiment-dataset/StandardDatasets/DemoDataset/Processed/features/unaligned_39.pkl",
+            "feature_dims": [
+                768,
+                33,
+                709
+            ],
+            "num_classes": 3,
+            "annotations": {
+                "Negative": 0,
+                "Neutral": 1,
+                "Positive": 2
+            }
+        }
+    }
+}
