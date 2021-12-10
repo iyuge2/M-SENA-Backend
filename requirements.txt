@@ -1,7 +1,6 @@
 Flask>=1.1.2
-Flask-Cors>=3.0.9
 Flask-SQLAlchemy>=2.4.4
-Flask-Uploads>=0.2.1
+# Flask-Uploads>=0.2.1
 matplotlib>=2.1.2
 numpy>=1.19.4
 pandas>=0.22.0
@@ -15,6 +14,7 @@ librosa
 torch>=1.2.0
 torchvision>=0.2.1
 transformers
-baidu-aip
-torchsnooper
+pycryptodome>=3.10.1
+# baidu-aip
+# torchsnooper
 facenet_pytorch==0.4.0
