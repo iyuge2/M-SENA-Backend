@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import Index
+from sqlalchemy import Index, PrimaryKeyConstraint
 from sqlalchemy.sql.schema import ForeignKey
 
 from constants import *
@@ -45,7 +45,7 @@ class Result(db.Model):
     # Tune, Normal
     is_tuning = db.Column(db.String(8), nullable=False, index=True)
     created_at = db.Column(
-        db.DateTime, default=datetime.utcnow() + timedelta(hours=8), index=True)
+        db.DateTime, default=datetime.now(), index=True)
     args = db.Column(db.String(MAX_ARGS_LEN), nullable=False, default="{}")
     save_model_path = db.Column(db.String(128))
     # final test results
@@ -61,25 +61,31 @@ class Result(db.Model):
         return str(self.__dict__)
 
 
-# class SResults(db.Model):
-#     __tablename__ = "SResults"
-#     result_id = db.Column(db.Integer, primary_key=True, nullable=False)
-#     sample_id = db.Column(db.Integer, index=True, nullable=False)
-#     label_value = db.Column(db.String(16), nullable=False)
-#     predict_value = db.Column(db.String(16), nullable=False)
+class SResults(db.Model):
+    # results for each sample
+    __tablename__ = "SResults"
+    result_id = db.Column(db.Integer, nullable=False)
+    sample_id = db.Column(db.Integer, nullable=False)
+    label_value = db.Column(db.String(16), nullable=False)
+    predict_value = db.Column(db.String(16), nullable=False)
+    __table_args__ = (
+        PrimaryKeyConstraint("result_id", "sample_id"),
+    )
 
-#     def __repr__(self):
-#         return str(self.__dict__)
+    def __repr__(self):
+        return str(self.__dict__)
 
 
 class EResult(db.Model):
     # results for each epoch
     __tablename__ = "EResult"
-    result_id = db.Column(db.Integer, primary_key=True, nullable=False)
+    result_id = db.Column(db.Integer, nullable=False)
     epoch_num = db.Column(db.Integer, nullable=False)
     results = db.Column(db.String(256), nullable=False)
     # json {"train": {"loss": ***, "accuracy": ***, "f1": ***}, "valid": {***}}
-    __table_args__ = (Index('id_epoch', "result_id", "epoch_num"), )
+    __table_args__ = (
+        PrimaryKeyConstraint("result_id", "epoch_num"),
+    )
 
     def __repr__(self):
         return str(self.__dict__)
@@ -94,9 +100,9 @@ class Task(db.Model):
     task_pid = db.Column(db.Integer, nullable=False, index=True)
     state = db.Column(db.Integer, nullable=False, index=True) # 0 -- 运行中，1 -- 已完成，2 -- 运行出错 3 -- 运行终止
     start_time = db.Column(
-        db.DateTime, default=datetime.utcnow() + timedelta(hours=8), index=True)
+        db.DateTime, default=datetime.now(), index=True)
     end_time = db.Column(
-        db.DateTime, default=datetime.utcnow() + timedelta(hours=8))
+        db.DateTime, default=datetime.now())
     message = db.Column(db.String(32))
 
     def __repr__(self):
@@ -144,14 +150,14 @@ class Feature(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     dataset_name = db.Column(db.String(32), nullable=False)
     feature_name = db.Column(db.String(32), nullable=False)
-    feature_T = db.Column(db.String(32))
-    feature_A = db.Column(db.String(32))
-    feature_V = db.Column(db.String(32))
+    feature_T = db.Column(db.String(128))
+    feature_A = db.Column(db.String(128))
+    feature_V = db.Column(db.String(128))
     feature_path = db.Column(db.String(256), nullable=False)
     description = db.Column(db.String(256))
 
     __table_args__ = (
-        db.UniqueConstraint('dataset_name', 'feature_name', name='ix_dataset_feature',),
+        db.UniqueConstraint('dataset_name', 'feature_name', 'feature_T', 'feature_A', 'feature_V', name='ix_dataset_feature_T_A_V',),
     )
 
 

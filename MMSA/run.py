@@ -223,7 +223,7 @@ def run_train(model_args, args):
 
     except Exception as e:
         print(e)
-        db.session.rollback() # 回滚操作
+        db.session.rollback()
         # remove saved features
         save_paths = args.model_save_path.split('.')[0]
         save_paths = glob(save_paths + '.*')
@@ -290,6 +290,9 @@ def parse_args():
     parser.add_argument('--task_id', type=int)
     parser.add_argument('--tune_times', type=int, default=20)
     parser.add_argument('--description', type=str, default='')
+    parser.add_argument('--feature_T', type=str, default=None)
+    parser.add_argument('--feature_A', type=str, default=None)
+    parser.add_argument('--feature_V', type=str, default=None)
     return parser.parse_args()
 
 if __name__ == '__main__':
@@ -302,5 +305,5 @@ if __name__ == '__main__':
         print(e)
         cur_task.state = 2
     finally:
-        cur_task.end_time = datetime.utcnow() + timedelta(hours=8)
+        cur_task.end_time = datetime.now()
         db.session.commit()

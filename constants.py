@@ -1,3 +1,10 @@
+# SYSTEM-WIDE
+SERVER_PORT = 8000
+LOG_FILE_PATH = './log/M-SENA.log'
+APP_SETTINGS = 'config.ProductionConfig'
+DATABASE_URL = 'mysql://sena:wasdwasd@127.0.0.1/sena'
+LIVE_TMP_PATH = '/tmp/M-SENA'
+
 # HTTP CODEs
 SUCCESS_CODE = 200 
 WARNING_CODE = 4030 
@@ -16,7 +23,6 @@ TEST_MODE = 2
 LABEL_NAME_N2I = {"-": -1, "Negative": 0, "Neutral": 1, "Positive": 2}
 LABEL_NAME_I2N = {-1: "-", 0: "Negative", 1: "Neutral", 2: "Positive"}
 MANUAL_LABEL_BATCH_SIZE = 16
-
 OPENFACE_FEATURE_PATH = '/home/iyuge2/ToolKits/OpenFace/build/bin/FeatureExtraction' # TODO
 
 # MODEL-END
@@ -24,15 +30,7 @@ MM_CODES_PATH = '/home/mhs/Projects/M-SENA-Backend/MMSA'
 MODEL_TMP_SAVE = '/home/mhs/Projects/M-SENA-Backend/MMSA/results'
 AL_CODES_PATH = '/home/mhs/Projects/M-SENA-Backend/ALCodes'
 
-# ANALYSIS-END
-LIVE_TMP_PATH = '/tmp/M-SENA'
-
 # limit sequence length
 MAX_TEXT_SEQ_LEN = 20
 MAX_VIDEO_SEQ_LEN = 50
 MAX_AUDIO_SEQ_LEN = 50
-
-# 
-LOG_FILE_PATH = './log/M-SENA.log'
-APP_SETTINGS = 'config.ProductionConfig'
-DATABASE_URL = 'mysql://sena:wasdwasd@127.0.0.1/sena'

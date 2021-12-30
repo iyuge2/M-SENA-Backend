@@ -1,8 +1,11 @@
-import os
+import logging
 import multiprocessing
-from http.server import HTTPServer,CGIHTTPRequestHandler
+import os
+from http.server import CGIHTTPRequestHandler, HTTPServer
 
 from constants import *
+
+logger = logging.getLogger('app')
 
 def http_server(path, port):
     try:
@@ -10,13 +13,19 @@ def http_server(path, port):
         server_address = ("",port) # 设置服务器地址
         server_obj = HTTPServer(server_address,CGIHTTPRequestHandler) # 创建服务器对象
         server_obj.serve_forever() # 启动服务器
-    except OSError as e:
-        print(e)
+    except KeyboardInterrupt:
+        logger.info(f"Stopping Media Server...")
+        server_obj.socket.close()
+        server_obj.shutdown()
+        logger.info(f"Media Server stopped.")
+    except Exception as e:
+        logger.exception(e)
+        return
 
 def run_http_server(path, port):
     p = multiprocessing.Process(target=http_server, args = (path, port))
     p.start()
-    print(f"[{p.pid} / {port}] Run http server at " + path + '...')
+    logger.info(f"[PID: {p.pid}] Media server started at {path}:{port}")
 
 if __name__ == "__main__":
     run_http_server(DATASET_ROOT_DIR, DATASET_SERVER_PORT)

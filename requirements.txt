@@ -1,20 +1,23 @@
-Flask>=1.1.2
-Flask-SQLAlchemy>=2.4.4
-# Flask-Uploads>=0.2.1
-matplotlib>=2.1.2
-numpy>=1.19.4
-pandas>=0.22.0
-Pillow>=5.0.0
-scikit-learn>=0.19.1
-scipy>=1.5.4
-SQLAlchemy>=1.2.1
-tqdm>=4.56.0
+flask>=2.0.1
+flask-sqlalchemy>=2.5.1
+flask-sockets>=0.2.1
+sqlalchemy>=1.4.22
+gevent>=21.8.0
+gevent-websocket>=0.10.1
+MMSA-FET >= 0.1.6
+numpy>=1.20.3
+pandas>=1.2.5
+scipy>=1.7.1
+scikit-learn>=0.24.2
+matplotlib>=3.4.2
+pillow>=8.3.1
+tqdm>=4.62.2
 mysqlclient>=2.0.3
-librosa
-torch>=1.2.0
-torchvision>=0.2.1
-transformers
+torch>=1.9.1
+torchvision>=0.10.1
+transformers>=4.12.2
 pycryptodome>=3.10.1
 # baidu-aip
 # torchsnooper
 facenet_pytorch==0.4.0
+openpyxl>=3.0.9
