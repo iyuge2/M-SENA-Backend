@@ -10,7 +10,7 @@ from PIL import Image
 from facenet_pytorch import MTCNN, InceptionResnetV1
 from transformers import *
 
-from constants import *
+from config.constants import MM_CODES_PATH, OPENFACE_FEATURE_PATH
 
 class MLive():
     def __init__(self, working_dir, transcript, language="Chinese"):

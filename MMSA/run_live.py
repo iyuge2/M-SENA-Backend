@@ -18,7 +18,7 @@ from models.AMIO import AMIO
 from data.livePre import MLive
 from utils.functions import Storage
 
-from constants import *
+from config.constants import MM_CODES_PATH, MODEL_TMP_SAVE
 
 def setup_seed(seed):
     torch.manual_seed(seed)

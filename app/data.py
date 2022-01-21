@@ -5,7 +5,7 @@ from collections import Counter
 
 import numpy as np
 import pandas as pd
-from constants import *
+from config.constants import *
 from database import Dsample
 from flask import request
 from sqlalchemy.dialects.mysql import insert
@@ -207,21 +207,26 @@ def get_dataset_details():
     logger.debug("API called: /dataEnd/getDetails")
     try:
         data = json.loads(request.get_data())
-        page, page_size = data['pageNo'], data['pageSize']
+        page_no, page_size = data['pageNo'], data['pageSize']
+        dataset_name = data['datasetName']
+        sentiment = data['sentiment_filter']
+        data_mode = data['data_mode_filter']
+        video_id = data['id_filter']
 
-        samples = db.session.query(Dsample).filter_by(
-            dataset_name=data['datasetName'])
+        samples = db.session.query(Dsample).filter(
+            Dsample.dataset_name == dataset_name
+        )
+        if sentiment != 'All':
+            samples = samples.filter(Dsample.annotation == sentiment)
+        if data_mode != 'All':
+            samples = samples.filter(Dsample.data_mode == data_mode)
+        if video_id != '':
+            samples = samples.filter(Dsample.video_id == video_id)
         totol_count = samples.count()
-        if data['sentiment_filter'] != 'All':
-            samples = samples.filter_by(annotation=data['sentiment_filter'])
-        if data['data_mode_filter'] != 'All':
-            samples = samples.filter_by(data_mode=data['data_mode_filter'])
-        if data['id_filter'] != '':
-            samples = samples.filter_by(video_id=data['id_filter'])
-        samples = samples.limit(page_size).offset((page - 1) * page_size).all()
+        samples = samples.paginate(page_no, page_size, False)
 
         res = []
-        for sample in samples:
+        for sample in samples.items:
             p = sample.__dict__.copy()
             p.pop('_sa_instance_state', None)
             for k,v in p.items():

@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from transformers import BertTokenizer, BertModel
-from constants import *
+from config.constants import MM_CODES_PATH
 
 __all__ = ['BertTextEncoder']
 
@@ -29,6 +29,7 @@ class BertTextEncoder(nn.Module):
             self.tokenizer = tokenizer_class.from_pretrained(pretrained_path, do_lower_case=True)
             self.model = model_class.from_pretrained(pretrained_path)
         elif language == 'Chinese':
+            pretrained_path = os.path.join(MM_CODES_PATH, 'pretrained_model/bert_cn')
             self.tokenizer = tokenizer_class.from_pretrained(pretrained_path)
             self.model = model_class.from_pretrained(pretrained_path)
         

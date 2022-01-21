@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from app import db
 from database import *
-from constants import *
+from config.constants import AL_CODES_PATH
 
 from load_data import MMDataLoader
 from classifiers.AMIO import AMIO

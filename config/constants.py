@@ -6,17 +6,18 @@ DATABASE_URL = 'mysql://sena:wasdwasd@127.0.0.1/sena'
 LIVE_TMP_PATH = '/tmp/M-SENA'
 
 # HTTP CODEs
-SUCCESS_CODE = 200 
-WARNING_CODE = 4030 
+SUCCESS_CODE = 200
+WARNING_CODE = 4030
 ERROR_CODE = 4040
 
-SQL_MAX_TEXT_LEN = 1024
+
 
 # DATA-END
 DATASET_ROOT_DIR = "/home/sharing/disk3/Datasets/MMSA-Standard"
 DATASET_SERVER_PORT = 8096
 DATASET_SERVER_IP = f"http://166.111.138.142:{DATASET_SERVER_PORT}"
-MAX_ARGS_LEN = 1024 # max length of model parameters (string)
+MAX_ARGS_LEN = 2048 # max len of args column in Result table
+SQL_MAX_TEXT_LEN = 1024 # max len of text column in Dsample table
 TRAIN_MODE = 0
 VALID_MODE = 1
 TEST_MODE = 2

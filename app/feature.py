@@ -4,10 +4,10 @@ import os
 from datetime import datetime
 from multiprocessing import Process, Queue
 
-from constants import *
+from config.constants import DATASET_ROOT_DIR, ERROR_CODE, SUCCESS_CODE
 from database import Feature, Task
 from flask import request
-from MSA_FET import FeatureExtractionTool
+from MSA_FET import FeatureExtractionTool, get_default_config
 from sqlalchemy.exc import IntegrityError
 
 from app import app, db, progress_queue, sockets
@@ -26,22 +26,28 @@ def get_feature_list():
         feature_T = request_data['featureT']
         feature_A = request_data['featureA']
         feature_V = request_data['featureV']
-        query_result = db.session.query(
-            Feature.id, Feature.feature_name, Feature.dataset_name, Feature.feature_T,
-            Feature.feature_A, Feature.feature_V, Feature.description
-        )
+        page_no = request_data['pageNo']
+        page_size = request_data['pageSize']
+        query_result = db.session.query(Feature)
         for filter_item in ['dataset_name', 'feature_T', 'feature_A', 'feature_V']:
             if eval(filter_item) != '':
                 query_result = query_result.filter(getattr(Feature, filter_item) == eval(filter_item))
         if feature_name != '':
             query_result = query_result.filter(Feature.feature_name.like(f'%{feature_name}%'))
+        total_count = query_result.count()
+        query_result = query_result.paginate(page_no, page_size, False)
         res = []
-        for result in query_result:
-            res.append(result._asdict())
+        for result in query_result.items:
+            p = result.__dict__.copy()
+            p.pop('_sa_instance_state', None)
+            for k,v in p.items():
+                if v == None:
+                    p[k] = '-'
+            res.append(p)
     except Exception as e:
         logger.exception(e)
         return {"code": ERROR_CODE, "msg": str(e)}
-    return {"code": SUCCESS_CODE, "msg": 'success', "data": res, "total": len(res)}
+    return {"code": SUCCESS_CODE, "msg": 'success', "data": res, "total": total_count}
 
 
 @app.route('/featureEnd/scanDefaultFeatures', methods=['POST'])
@@ -128,9 +134,7 @@ def get_feature_args():
         request_data = json.loads(request.get_data())
         modality = request_data['modality']
         tool = request_data['tool']
-        with open('./feature_configs.json', 'r') as f:
-            config_all = json.load(f)
-        config = config_all[modality][tool]
+        config = get_default_config(tool)
     except Exception as e:
         logger.exception(e)
         return {"code": ERROR_CODE, "msg": str(e)}
@@ -158,7 +162,9 @@ def start_extracting():
             'audio': request_data['audioArgs'],
             'video': request_data['videoArgs']
         }
-        if not advanced:
+        if advanced:
+            feature_name = request_data['featureName']
+        else:
             feature_name = request_data['dataset'] + '_'
             if enable['text']:
                 feature_name += 'T_'
@@ -167,17 +173,15 @@ def start_extracting():
             if enable['video']:
                 feature_name += 'V_'
             feature_name = feature_name[:-1]
-        else:
-            feature_name = request_data['featureName']
         dataset = request_data['dataset']
         description = request_data['description']
         config = {}
         for k, v in args.items():
-            if not enable[k]:
-                continue
-            config = config | v
+            if enable[k]:
+                config = config | v
 
         database = {}
+        # TODO: check user input to avoid vulnerability
         if enable['audio']:
             if tool['audio'] == 'librosa':
                 database['audio'] = 'librosa&n_mfcc=' + str(config['audio']['args']['mfcc']['n_mfcc'])
@@ -185,13 +189,19 @@ def start_extracting():
                     if item in config['audio']['args']:
                         database['audio'] += f'&{item}'
             elif tool['audio'] == 'opensmile':
-                database['audio'] = f'opensmile&feature_set={config["audio"]["args"]["feature_set"]}'
+                database['audio'] = f'opensmile&feature_set={config["audio"]["args"]["feature_set"]}&feature_level={config["audio"]["args"]["feature_level"]}'
             elif tool['audio'] == 'wav2vec':
                 database['audio'] = f'wav2vec&pretrained={config["audio"]["pretrained"]}'
             else:
                 database['audio'] = tool['audio']
         if enable['video']:
-            database['video'] = tool['video']
+            if tool['video'] == 'openface':
+                database['video'] = 'openface'
+                for item in ['action_units', 'gaze', 'head_pose', 'landmark_2D', 'landmark_3D', 'head_pose', 'pdmparams']:
+                    if config['video']['args'][item]:
+                        database['video'] += f'&{item}'
+            else:
+                database['video'] = tool['video']
         if enable['text']:
             database['text'] = tool['text']
         
@@ -203,7 +213,8 @@ def start_extracting():
                 feature_T=database['text'] if enable['text'] else 'None',
                 feature_A=database['audio'] if enable['audio'] else 'None',
                 feature_V=database['video'] if enable['video'] else 'None',
-                feature_path='pending'
+                feature_path='pending',
+                description=description
             )
             db.session.add(payload_feature)
             db.session.flush()

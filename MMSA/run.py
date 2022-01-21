@@ -3,15 +3,17 @@ import sys
 import time
 import json
 import random
-# import logging
+import logging
 import torch
 import pickle
 import argparse
 import numpy as np
 from tqdm import tqdm
+from easydict import EasyDict as Edict
 from glob import glob
 from datetime import datetime
 from sklearn.decomposition import PCA
+from multiprocessing import Queue
 
 # db interaction
 if os.getcwd() not in sys.path:
@@ -25,11 +27,15 @@ from models.AMIO import AMIO
 from trains.ATIO import ATIO
 from data.load_data import MMDataLoader
 from data.livePre import MLive
-from utils.functions import Storage
+# from utils.functions import Storage
 
 from app import db
 from database import *
-from constants import *
+from config.constants import *
+
+
+logger = logging.getLogger('app')
+
 
 def setup_seed(seed):
     torch.manual_seed(seed)
@@ -38,11 +44,11 @@ def setup_seed(seed):
     random.seed(seed)
     torch.backends.cudnn.deterministic = True
 
+
 def run(args):
     # device
-    using_cuda = len(args.gpu_ids) > 0 and torch.cuda.is_available()
-    print("Let's use %d GPUs!" % len(args.gpu_ids))
-    device = torch.device('cuda:%d' % int(args.gpu_ids[0]) if using_cuda else 'cpu')
+    using_cuda = args.gpu_id >= 0 and torch.cuda.is_available()
+    device = torch.device(f'cuda:{int(args.gpu_id)}' if using_cuda else 'cpu')
     args.device = device
     # data
     dataloader = MMDataLoader(args)
@@ -82,6 +88,7 @@ def run(args):
         os.remove(args.model_save_path)
 
     return {"epoch_results": epoch_results, 'final_results': final_results}
+
 
 def run_train(model_args, args):
     if not os.path.exists(MODEL_TMP_SAVE):
@@ -233,77 +240,63 @@ def run_train(model_args, args):
         raise Exception(e)
 
 def run_pre(args):
-    def load_model_params():
-        # load model config
-        if args.parameters == "":
-            with open(os.path.join(MM_CODES_PATH, 'config.json'), 'r') as f:
-                model_config = json.load(f)["MODELS"]
-                model_config = model_config[args.modelName]['args'][args.datasetName]
-        else:
-            model_config = json.loads(args.parameters)
-        return model_config
-
-    def load_data_params():
-        # load data config
+    
+    # load model config
+    if args.parameters == "":
         with open(os.path.join(MM_CODES_PATH, 'config.json'), 'r') as f:
-            data_config = json.load(f)["DATASETS"][args.datasetName]
-        if "need_data_aligned" in model_args and model_args['need_data_aligned']:
-            data_config = data_config['aligned']
-        else:
-            data_config = data_config['unaligned']
-        data_config['feature_path'] = os.path.join(DATASET_ROOT_DIR, data_config['feature_path'])
-        return data_config
-
-    if args.run_mode == 'Tune':
-        for _ in range(args.tune_times):
-            model_args = load_model_params()
-            # select a random param
-            for k, v in model_args.items():
-                if k == "gpu_ids":
-                    continue
-                if isinstance(v, list):
-                    model_args[k] = random.choice(v)
-            # skip the repeated parameters
-            existed = db.session.query(Result).filter_by(dataset_name=args.datasetName, \
-                            model_name=args.modelName, args=json.dumps(model_args)).first()
-            if not existed:
-                data_args = load_data_params()
-                new_args = Storage(dict(vars(args), **model_args, **data_args))
-                run_train(model_args, new_args)
-    elif args.run_mode == 'Train':
-        model_args = load_model_params()
-        data_args = load_data_params()
-        new_args = Storage(dict(vars(args), **model_args, **data_args))
-        run_train(model_args, new_args)
+            model_config = json.load(f)["MODELS"]
+            model_config = model_config[args.modelName]['args'][args.datasetName]
     else:
-       pass
+        model_config = json.loads(args.parameters)
+
+    # load data config
+    with open(os.path.join(MM_CODES_PATH, 'config.json'), 'r') as f:
+        data_config = json.load(f)["DATASETS"][args.datasetName]
+    if "need_data_aligned" in model_config and model_config['need_data_aligned']:
+        data_config = data_config['aligned']
+    else:
+        data_config = data_config['unaligned']
+    data_config['feature_path'] = os.path.join(DATASET_ROOT_DIR, data_config['feature_path']) # TODO
+
+    new_args = Storage(dict(vars(args), **model_args, **data_args))
+    run_train(model_config, new_args)
+
+
+def SENA_run(db: SQLAlchemy, table: dict, task_id: int, progress_q: Queue, **kwargs) -> None:
+    logger.info(f"M-SENA Task {task_id} started.")
+    cur_task = db.session.query(table['Task']).filter(table['Task'].task_id == task_id).first()
+    print(cur_task)
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--run_mode', type=str, default="Train",
-                        help='Tune; Train')
-    parser.add_argument('--modelName', type=str, default="MTFN",
-                        help='support TFN/LMF/MFN/EF_LSTM/LF_DNN/Graph-MFN/MTFN/MLF_DNN/MLMF/MULT/MISA')
-    parser.add_argument('--datasetName', type=str, default='SIMS',
-                        help='support SIMS/MOSI/MOSEI')
-    parser.add_argument('--parameters', type=str, default='')
+                        help='Deprecated. Possivle values: "Tune", "Train"')
+    parser.add_argument('-m', '--modelName', type=str, default="MTFN",
+                        help='Supported models: TFN/LMF/MFN/EF_LSTM/LF_DNN/Graph-MFN/MTFN/MLF_DNN/MLMF/MULT/MISA')
+    parser.add_argument('-d', '--datasetName', type=str, default='SIMS',
+                        help='Supported datasets: SIMS/MOSI/MOSEI')
+    parser.add_argument('-p', '--parameters', type=str, default='')
     parser.add_argument('--task_id', type=int)
-    parser.add_argument('--tune_times', type=int, default=20)
+    parser.add_argument('--tune_times', type=int, default=20) # deprecated
     parser.add_argument('--description', type=str, default='')
-    parser.add_argument('--feature_T', type=str, default=None)
-    parser.add_argument('--feature_A', type=str, default=None)
-    parser.add_argument('--feature_V', type=str, default=None)
+    parser.add_argument('-T', '--feature_T', type=str, default=None)
+    parser.add_argument('-A', '--feature_A', type=str, default=None)
+    parser.add_argument('-V', '--feature_V', type=str, default=None)
     return parser.parse_args()
+
 
 if __name__ == '__main__':
     args = parse_args()
     try:
+        logger.info(f'Training started for task {args.task_id}...')
         cur_task = db.session.query(Task).get(args.task_id)
         run_pre(args)
         cur_task.state = 1
     except Exception as e:
-        print(e)
+        logger.exception(e)
         cur_task.state = 2
     finally:
         cur_task.end_time = datetime.now()
         db.session.commit()
+        logger.info(f'Training complete for task {args.task_id}.')

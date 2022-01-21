@@ -1,0 +1,68 @@
+{
+  "SIMS": {
+    "unaligned": {
+      "feature_path": "SIMS/Processed/features/unaligned_39.pkl",
+      "seq_lens": [39, 400, 55],
+      "feature_dims": [768, 33, 709],
+      "num_classes": 3,
+      "language": "Chinese",
+      "annotations": {
+        "Negative": 0,
+        "Neutral": 1,
+        "Positive": 2
+      }
+    }
+  },
+  "MOSI": {
+    "unaligned": {
+      "feature_path": "MOSI/Processed/our_unaligned.pkl",
+      "seq_lens": [44, 620, 144],
+      "feature_dims": [768, 33, 709],
+      "num_classes": 3,
+      "language": "English",
+      "annotations": {
+        "Negative": 0,
+        "Neutral": 1,
+        "Positive": 2
+      }
+    },
+    "aligned": {
+      "feature_path": "MOSI/Processed/aligned_50.pkl",
+      "seq_lens": [50, 50, 50],
+      "feature_dims": [768, 5, 20],
+      "num_classes": 3,
+      "language": "English",
+      "annotations": {
+        "Negative": 0,
+        "Neutral": 1,
+        "Positive": 2
+      }
+    }
+  },
+  "MOSEI": {
+    "unaligned": {
+      "feature_path": "MOSEI/Processed/unaligned_50.pkl",
+      "seq_lens": [50, 500, 500],
+      "feature_dims": [768, 74, 35],
+      "num_classes": 3,
+      "language": "English",
+      "annotations": {
+        "Negative": 0,
+        "Neutral": 1,
+        "Positive": 2
+      }
+    },
+    "aligned": {
+      "feature_path": "MOSEI/Processed/aligned_50.pkl",
+      "seq_lens": [50, 50, 50],
+      "feature_dims": [768, 74, 35],
+      "num_classes": 3,
+      "language": "English",
+      "annotations": {
+        "Negative": 0,
+        "Neutral": 1,
+        "Positive": 2
+      }
+    }
+  }
+}

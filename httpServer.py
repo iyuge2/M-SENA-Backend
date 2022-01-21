@@ -3,7 +3,7 @@ import multiprocessing
 import os
 from http.server import CGIHTTPRequestHandler, HTTPServer
 
-from constants import *
+from config.constants import DATASET_ROOT_DIR, DATASET_SERVER_PORT
 
 logger = logging.getLogger('app')
 

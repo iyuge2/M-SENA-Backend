@@ -10,8 +10,8 @@ from logging.handlers import RotatingFileHandler
 from flask import make_response, request
 from gevent.pywsgi import WSGIServer
 
-from app import app, sockets
-from constants import *
+from app import app
+from config.constants import *
 from httpServer import run_http_server
 
 

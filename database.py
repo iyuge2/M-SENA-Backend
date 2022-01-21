@@ -8,11 +8,12 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Index, PrimaryKeyConstraint
 from sqlalchemy.sql.schema import ForeignKey
 
-from constants import *
+from config.constants import *
 
-app = Flask(__name__)
-app.config.from_object(APP_SETTINGS)
-db = SQLAlchemy(app)
+from app import db
+
+
+
 
 
 class Dsample(db.Model):
@@ -38,12 +39,15 @@ class Dsample(db.Model):
 
 
 class Result(db.Model):
+    # final result of a task
     __tablename__ = "Result"
     result_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     dataset_name = db.Column(db.String(32), nullable=False, index=True)
     model_name = db.Column(db.String(32), nullable=False, index=True)
     # Tune, Normal
-    is_tuning = db.Column(db.String(8), nullable=False, index=True)
+    is_tuning = db.Column(db.String(8), index=True)
+    # is_tune = db.Column(db.Boolean, nullable=False, index=True)
+    # custom_feature = db.Column(db.Boolean, nullable=False, index=True)
     created_at = db.Column(
         db.DateTime, default=datetime.now(), index=True)
     args = db.Column(db.String(MAX_ARGS_LEN), nullable=False, default="{}")
@@ -52,6 +56,7 @@ class Result(db.Model):
     loss_value = db.Column(db.Float, nullable=False, index=True)
     accuracy = db.Column(db.Float, nullable=False, index=True)
     f1 = db.Column(db.Float, nullable=False, index=True)
+    # mae = db.Column(db.Float, nullable=False, index=True)
     description = db.Column(db.String(128))
 
     def get_id(self):
@@ -165,6 +170,18 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', type=str, default='create')
     return parser.parse_args()
+
+
+ALL_TABLES = {
+    'Dsample': Dsample,
+    'Result': Result,
+    'SResults': SResults,
+    'EResult': EResult,
+    'Task': Task,
+    'User': User,
+    'Annotation': Annotation,
+    'Feature': Feature,
+}
 
 
 if __name__ == '__main__':

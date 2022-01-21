@@ -52,11 +52,23 @@
         }
       }
     },
-    "openface2": {
+    "openface": {
       "video": {
-        "tool": "openface2",
+        "tool": "openface",
         "fps": 25,
-        "args": {}
+        "args": {
+          "hogalign": false,
+          "simalign": false,
+          "nobadaligned": false,
+          "landmark_2D": true,
+          "landmark_3D": false,
+          "pdmparams": false,
+          "head_pose": true,
+          "action_units": true,
+          "gaze": true,
+          "tracked": false,
+          "average_over": 3
+        }
       }
     },
     "vggface": {

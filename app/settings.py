@@ -2,7 +2,7 @@ import json
 import logging
 import os
 
-from constants import *
+from config.constants import *
 from database import Result
 from MSA_FET import *
 

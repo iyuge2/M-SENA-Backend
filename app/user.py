@@ -3,7 +3,7 @@ import json
 import logging
 from datetime import datetime, timedelta
 
-from constants import *
+from config.constants import *
 from Crypto.Cipher import AES
 from Crypto.Util import Padding
 from database import User

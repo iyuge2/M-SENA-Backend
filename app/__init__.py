@@ -1,7 +1,7 @@
 
 import logging
 
-from constants import APP_SETTINGS
+from config.constants import APP_SETTINGS
 from flask import Flask
 from flask_sock import Sock
 from flask_sqlalchemy import SQLAlchemy

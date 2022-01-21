@@ -9,7 +9,7 @@ from pytz import timezone
 from datetime import datetime
 
 
-from constants import *
+from config.constants import *
 from database import Task, User
 
 from app import app, db, sockets, progress_queue
@@ -144,7 +144,13 @@ def get_task_progress(ws):
         'processed': 0,
         'total': 0
     }
+
+    Known issue:
+        Task status updates are invoked by clients upon receiving message through websocket.
+        Thus if no client is active, the task status will not be updated. 
+        If the server is restarted with pending reports in the Queue, the task status will be lost and remains out-of-sync.
     """
+    
     logger.debug("WebSocket called: /task/progress")
     try:
         while True:

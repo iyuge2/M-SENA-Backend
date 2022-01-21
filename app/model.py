@@ -3,7 +3,7 @@ import logging
 import os
 import subprocess
 
-from constants import *
+from config.constants import *
 from database import Result, Task
 from flask import request
 

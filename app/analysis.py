@@ -6,7 +6,7 @@ import shutil
 import time
 from glob import glob
 
-from constants import *
+from config.constants import *
 from database import Dsample, EResult, Result, SResults
 from flask import request
 from MMSA.run_live import run_live

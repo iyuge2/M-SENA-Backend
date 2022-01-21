@@ -1,9 +1,7 @@
-import os
-from constants import DATABASE_URL
+from .constants import DATABASE_URL
 
 class BaseConfig(object):
     DEBUG = False
-    # SQLALCHEMY_DATABASE_URI = os.environ['DATABASE_URL']
     SQLALCHEMY_DATABASE_URI = DATABASE_URL
     SQLALCHEMY_TRACK_MODIFICATIONS = True
     JSON_AS_ASCII = False # Chinese

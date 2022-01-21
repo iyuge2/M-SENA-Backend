@@ -4,7 +4,7 @@ import os
 from flask.helpers import make_response
 
 import pandas as pd
-from constants import *
+from config.constants import *
 from database import Annotation, Dsample, User
 from flask import request, send_file
 from flask_sqlalchemy import SQLAlchemy
