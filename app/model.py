@@ -1,32 +1,30 @@
 import json
 import logging
 import os
-import subprocess
+from multiprocessing import Process
+from pathlib import Path
 
 from config.constants import *
 from database import Result, Task
 from flask import request
+from MMSA import SENA_run, get_config_regression, get_config_tune, get_citations
 
-from app import app, db
+from app import app, db, progress_queue
 from app.user import check_token
-
 
 logger = logging.getLogger('app')
 
 
-@app.route('/modelEnd/modelList', methods=['GET'])
-def get_model_list():
-    logger.debug("API called: /modelEnd/modelList")
+@app.route('/modelEnd/getCitations', methods=['GET'])
+def get_paper_citations():
+    logger.debug("API called: /modelEnd/getCitations")
     try:
-        with open(os.path.join(MM_CODES_PATH, 'config.json'), 'r') as fp:
-            config = json.load(fp)["MODELS"]
         res = []
-        for name, items in config.items():
-            p = {}
-            p['model_name'] = name
-            for k, v in items.items():
-                p[k] = v
-            res.append(p)
+        cites = get_citations()['models']
+        for k, v in cites.items():
+            tmp = {'modelName':k}
+            tmp.update(v)
+            res.append(tmp)
     except Exception as e:
         logger.exception(e)
         return {"code": ERROR_CODE, "msg": str(e)}
@@ -42,7 +40,7 @@ def train_model():
         payload = Task(
             dataset_name=data['dataset'],
             model_name=data['model'],
-            task_type=1 if data['mode'] == "Train" else 2,
+            task_type=2 if data['isTune'] else 1,
             task_pid=10000,
             state=0
         )
@@ -51,21 +49,28 @@ def train_model():
         db.session.flush()
         task_id = payload.task_id
 
-        cmd_page = [
-            'python', os.path.join(MM_CODES_PATH, 'run.py'),
-            '--run_mode', data['mode'],
-            '--modelName', data['model'],
-            '--datasetName', data['dataset'],
-            '--parameters', data['args'],
-            '--tune_times', data['tuneTimes'],
-            '--task_id', str(task_id),
-            '--description', data['description'],
-            '--feature_T', data['featureT'],
-            '--feature_A', data['featureA'],
-            '--feature_V', data['featureV'],
-        ]
-        p = subprocess.Popen(cmd_page, close_fds=True)
-
+        p = Process(target=SENA_run, kwargs={
+            'task_id': task_id,
+            'progress_q': progress_queue,
+            'db_url': DATABASE_URL,
+            # use default parameters if not in advanced mode
+            'parameters': data['args'] if data['advanced'] else '',
+            'model_name': data['model'],
+            'dataset_name': data['dataset'],
+            'is_tune': data['isTune'],
+            'tune_times': data['tuneTimes'],
+            'feature_T': data['featureT'],
+            'feature_A': data['featureA'],
+            'feature_V': data['featureV'],
+            'model_save_dir': MODEL_SAVE_PATH,
+            'res_save_dir': RES_SAVE_PATH,
+            'log_dir': Path(LOG_FILE_PATH).parent,
+            'gpu_ids': [], # auto detect gpu
+            'num_workers': 0, # set to 0 to avoid multiprocessing errors
+            'seed': data['seed'],
+            'desc': data['description']
+        })
+        p.start()
         payload.task_pid = p.pid
         db.session.commit()
     except Exception as e:
@@ -81,9 +86,11 @@ def get_args():
         requests = json.loads(request.get_data())
         model_name = requests['model']
         dataset_name = requests['dataset']
-        with open(os.path.join(MM_CODES_PATH, 'config.json'), 'r') as fp:
-            config = json.load(fp)["MODELS"]
-        args = config[model_name]['args'][dataset_name]
+        is_tune = requests['isTune']
+        if is_tune:
+            args = get_config_tune(model_name=model_name, dataset_name=dataset_name, random_choice=False)
+        else:
+            args = get_config_regression(model_name=model_name, dataset_name=dataset_name)
     except Exception as e:
         logger.exception(e)
         return {"code": ERROR_CODE, "msg": str(e)}

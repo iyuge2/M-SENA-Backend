@@ -5,17 +5,16 @@ import pickle
 import shutil
 import time
 from glob import glob
+from pathlib import Path
 
 from config.constants import *
 from database import Dsample, EResult, Result, SResults
 from flask import request
-from MMSA.run_live import run_live
 from pytz import timezone
 from sqlalchemy import and_, asc
 
 from app import app, db
 from app.user import check_token
-
 
 logger = logging.getLogger('app')
 
@@ -31,8 +30,9 @@ def get_results():
             results = results.filter_by(model_name=data['model_name'])
         if data['dataset_name'] != 'All':
             results = results.filter_by(dataset_name=data['dataset_name'])
-        if data['is_tuning'] != 'Both':
-            results = results.filter_by(is_tuning=data['is_tuning'])
+        if data['is_tune'] != 'Both':
+            is_tune = 0 if data['is_tune'] == 'False' else 1
+            results = results.filter_by(is_tune=is_tune)
 
         # sorted results
         if data['order'] == 'descending':
@@ -49,21 +49,19 @@ def get_results():
         for result in results:
             p = result.__dict__.copy()
             p.pop('_sa_instance_state', None)
-            cur_id = p['result_id']
-            p['created_at'] = p['created_at'].astimezone(
-                timezone('Asia/Shanghai'))
+            p['created_at'] = p['created_at'].astimezone(timezone('Asia/Shanghai'))
             p['test-acc'] = result.accuracy
             p['test-f1'] = result.f1
-            p['train'] = {k: [] for k in ['loss_value', 'accuracy', 'f1']}
-            p['valid'] = {k: [] for k in ['loss_value', 'accuracy', 'f1']}
-            p['test'] = {k: [] for k in ['loss_value', 'accuracy', 'f1']}
+            p['train'] = {k: [] for k in ['loss_value', 'accuracy', 'f1', 'mae', 'corr']}
+            p['valid'] = {k: [] for k in ['loss_value', 'accuracy', 'f1', 'mae', 'corr']}
+            p['test'] = {k: [] for k in ['loss_value', 'accuracy', 'f1', 'mae', 'corr']}
             e_result = db.session.query(EResult).filter_by(
                 result_id=result.result_id).order_by(asc(EResult.epoch_num)).all()
             e_result = e_result[1:]  # remove final results
             for cur_r in e_result:
                 e_res = json.loads(cur_r.results)
                 for mode in ['train', 'valid', 'test']:
-                    for item in ['loss_value', 'accuracy', 'f1']:
+                    for item in ['loss_value', 'accuracy', 'f1', 'mae', 'corr']:
                         p[mode][item].append(e_res[mode][item])
             ret.append(p)
 
@@ -95,9 +93,9 @@ def get_results_details():
             "dataset": cur_result.dataset_name,
             "args": cur_result.args,
             "description": cur_result.description,
-            "train": {k: [] for k in ['loss_value', 'accuracy', 'f1']},
-            "valid": {k: [] for k in ['loss_value', 'accuracy', 'f1']},
-            "test": {k: [] for k in ['loss_value', 'accuracy', 'f1']},
+            "train": {k: [] for k in ['loss_value', 'accuracy', 'f1', 'mae', 'corr']},
+            "valid": {k: [] for k in ['loss_value', 'accuracy', 'f1', 'mae', 'corr']},
+            "test": {k: [] for k in ['loss_value', 'accuracy', 'f1', 'mae', 'corr']},
             "features": {}
         }
         e_result = db.session.query(EResult).filter_by(
@@ -105,7 +103,7 @@ def get_results_details():
         for cur_e in e_result:
             e_res = json.loads(cur_e.results)
             for mode in ['train', 'valid', 'test']:
-                for item in ['loss_value', 'accuracy', 'f1']:
+                for item in ['loss_value', 'accuracy', 'f1', 'mae', 'corr']:
                     ret[mode][item].append(round(e_res[mode][item], 4))
     except Exception as e:
         logger.exception(e)
@@ -121,9 +119,9 @@ def get_feature_details():
         result_id, select_modes, feature_mode = data['id'], data['select_modes'], data['feature_mode']
         cur_result = db.session.query(Result).get(result_id)
         ret = {}
-        if cur_result.is_tuning == 'Train':
+        if cur_result.is_tune == False:
             # load features
-            with open(os.path.join(MODEL_TMP_SAVE, f'{cur_result.model_name}-{cur_result.dataset_name}-{result_id}.pkl'), 'rb') as fp:
+            with open(os.path.join(MODEL_SAVE_PATH, f'{cur_result.model_name}-{cur_result.dataset_name}-{result_id}.pkl'), 'rb') as fp:
                 features = pickle.load(fp)
             select_modes = [s.lower() for s in select_modes]
             final_select_modes = []
@@ -134,7 +132,7 @@ def get_feature_details():
             if 'test' in select_modes:
                 final_select_modes.append('test')
             key = '-'.join(final_select_modes)
-            for name in ['Feature_T', 'Feature_A', 'Feature_V', 'Feature_M']:
+            for name in ['Feature_t', 'Feature_a', 'Feature_v', 'Feature_f']:
                 ret[name] = features[key][feature_mode][name]
     except Exception as e:
         logger.exception(e)
@@ -185,25 +183,25 @@ def get_sample_details():
     return {"code": SUCCESS_CODE, "msg": 'success', "totalCount": totolCount, "results": res}
 
 
-@app.route('/analysisEnd/setDefaultModel', methods=['POST'])
-def set_default_args():
-    logger.debug("API called: /analysisEnd/setDefaultModel")
-    try:
-        result_id = json.loads(request.get_data())['id']
-        cur_result = db.session.query(Result).get(result_id)
-        # revise config.json in model codes
-        with open(os.path.join(MM_CODES_PATH, 'config.json'), 'r') as f:
-            model_config = json.load(f)
-        model_config['MODELS'][cur_result.model_name]['args'][cur_result.dataset_name] = json.loads(
-            cur_result.args)
-        with open(os.path.join(MM_CODES_PATH, 'config.json'), 'w') as f:
-            json.dump(model_config, f, indent=4)
-        # cur_result.is_default = True
-        db.session.commit()
-    except Exception as e:
-        logger.exception(e)
-        return {"code": ERROR_CODE, "msg": str(e)}
-    return {"code": SUCCESS_CODE, "msg": 'success'}
+# @app.route('/analysisEnd/setDefaultModel', methods=['POST'])
+# def set_default_args():
+#     logger.debug("API called: /analysisEnd/setDefaultModel")
+#     try:
+#         result_id = json.loads(request.get_data())['id']
+#         cur_result = db.session.query(Result).get(result_id)
+#         # revise config.json in model codes
+#         with open(os.path.join(MM_CODES_PATH, 'config.json'), 'r') as f:
+#             model_config = json.load(f)
+#         model_config['MODELS'][cur_result.model_name]['args'][cur_result.dataset_name] = json.loads(
+#             cur_result.args)
+#         with open(os.path.join(MM_CODES_PATH, 'config.json'), 'w') as f:
+#             json.dump(model_config, f, indent=4)
+#         # cur_result.is_default = True
+#         db.session.commit()
+#     except Exception as e:
+#         logger.exception(e)
+#         return {"code": ERROR_CODE, "msg": str(e)}
+#     return {"code": SUCCESS_CODE, "msg": 'success'}
 
 
 @app.route('/analysisEnd/delResult', methods=['POST'])
@@ -216,7 +214,7 @@ def del_results():
             cur_result = db.session.query(Result).get(result_id)
             cur_name = cur_result.model_name + '-' + \
                 cur_result.dataset_name + '-' + str(cur_result.result_id)
-            file_paths = glob(os.path.join(MODEL_TMP_SAVE, cur_name + '.*'))
+            file_paths = glob(os.path.join(MODEL_SAVE_PATH, cur_name + '.*'))
             for file in file_paths:
                 os.remove(file)
 
@@ -246,13 +244,13 @@ def batch_test():
         results = []
         for model in models:
             result_id = int(model.split('-')[-1])
-            cur_result = {k: [] for k in ['loss_value', 'accuracy', 'f1']}
+            cur_result = {k: [] for k in ['loss_value', 'accuracy', 'f1', 'mae', 'corr']}
             cur_result['model'] = model
             e_result = db.session.query(EResult).filter_by(
                 result_id=result_id).order_by(asc(EResult.epoch_num)).all()
             for cur_e in e_result:
                 e_res = json.loads(cur_e.results)
-                for item in ['loss_value', 'accuracy', 'f1']:
+                for item in ['loss_value', 'accuracy', 'f1', 'mae', 'corr']:
                     cur_result[item].append(round(e_res[mode][item], 4))
             results.append(cur_result)
     except Exception as e:
@@ -268,8 +266,7 @@ def get_live_results():
         # print(request.form)
         msc = str(round(time.time() * 1000))
         working_dir = os.path.join(LIVE_TMP_PATH, msc)
-        if not os.path.exists(working_dir):
-            os.mkdir(working_dir)
+        Path(working_dir).mkdir(exist_ok=False)
         # save video
         with open(os.path.join(working_dir, "live.mp4"), "wb") as vid:
             video_stream = request.files['recorded'].stream.read()
@@ -288,7 +285,7 @@ def get_live_results():
                 'transcript': request.form['transcript'],
                 'language': request.form['language']
             }
-            cur_results = run_live(other_args)
+            # cur_results = run_live(other_args)
             for k, v in cur_results.items():
                 v['model'] = pre_trained_model
                 results[k].append(v)

@@ -1,10 +1,9 @@
 from gevent import monkey
+
 monkey.patch_all()
 
 import logging
 import os
-
-import sys
 from logging.handlers import RotatingFileHandler
 
 from flask import make_response, request
@@ -14,9 +13,6 @@ from app import app
 from config.constants import *
 from httpServer import run_http_server
 
-
-if MM_CODES_PATH not in sys.path:
-    sys.path.insert(0, MM_CODES_PATH)
 
 def init_logger():
     logger = logging.getLogger('app')

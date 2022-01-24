@@ -16,6 +16,7 @@ app.config.from_object(APP_SETTINGS)
 sockets = Sock(app)
 
 db = SQLAlchemy(app)
+db.create_all()
 
 progress_queue = Queue(maxsize=512)
 result_queue = Queue(maxsize=512)

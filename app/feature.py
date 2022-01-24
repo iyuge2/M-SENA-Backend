@@ -143,6 +143,8 @@ def get_feature_args():
 
 @app.route('/featureEnd/startExtracting', methods=['POST'])
 def start_extracting():
+    # TODO: 数据库修改为存放特征参数json字符串，（增加长度，取消索引）
+    # TODO: 前端修改为折叠显示三模态特征参数
     logger.debug("API called: /featureEnd/startExtracting")
     try:
         request_data = json.loads(request.get_data())

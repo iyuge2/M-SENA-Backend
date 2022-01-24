@@ -1,1 +1,0 @@
-# Multimodal Sentiment Recognition Framework

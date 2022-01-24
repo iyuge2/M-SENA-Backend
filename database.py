@@ -1,19 +1,9 @@
-import argparse
-import os
-import shutil
-from datetime import datetime, timedelta
+from datetime import datetime
 
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import Index, PrimaryKeyConstraint
+from sqlalchemy import PrimaryKeyConstraint
 from sqlalchemy.sql.schema import ForeignKey
 
-from config.constants import *
-
 from app import db
-
-
-
 
 
 class Dsample(db.Model):
@@ -24,7 +14,7 @@ class Dsample(db.Model):
     video_id = db.Column(db.String(32), nullable=False, index=True)
     clip_id = db.Column(db.String(32), nullable=False, index=True)
     video_path = db.Column(db.String(128), nullable=False)
-    text = db.Column(db.String(SQL_MAX_TEXT_LEN), nullable=False)
+    text = db.Column(db.String(1024), nullable=False)
     data_mode = db.Column(db.String(8), index=True) # 0 -- train, 1 -- valid, 2 -- test
     label_value = db.Column(db.Float, index=True) # regression label
     annotation = db.Column(db.String(16), index=True, default='-') # class label in string
@@ -45,18 +35,18 @@ class Result(db.Model):
     dataset_name = db.Column(db.String(32), nullable=False, index=True)
     model_name = db.Column(db.String(32), nullable=False, index=True)
     # Tune, Normal
-    is_tuning = db.Column(db.String(8), index=True)
-    # is_tune = db.Column(db.Boolean, nullable=False, index=True)
-    # custom_feature = db.Column(db.Boolean, nullable=False, index=True)
-    created_at = db.Column(
-        db.DateTime, default=datetime.now(), index=True)
-    args = db.Column(db.String(MAX_ARGS_LEN), nullable=False, default="{}")
+    # is_tuning = db.Column(db.String(8), index=True)
+    is_tune = db.Column(db.Boolean, nullable=False, index=True)
+    custom_feature = db.Column(db.Boolean, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.now(), index=True)
+    args = db.Column(db.String(2048), nullable=False, default="{}")
     save_model_path = db.Column(db.String(128))
     # final test results
     loss_value = db.Column(db.Float, nullable=False, index=True)
     accuracy = db.Column(db.Float, nullable=False, index=True)
     f1 = db.Column(db.Float, nullable=False, index=True)
-    # mae = db.Column(db.Float, nullable=False, index=True)
+    mae = db.Column(db.Float, nullable=False, index=True)
+    corr = db.Column(db.Float, nullable=False, index=True)
     description = db.Column(db.String(128))
 
     def get_id(self):
@@ -73,6 +63,7 @@ class SResults(db.Model):
     sample_id = db.Column(db.Integer, nullable=False)
     label_value = db.Column(db.String(16), nullable=False)
     predict_value = db.Column(db.String(16), nullable=False)
+    predict_value_r = db.Column(db.Float, nullable=False)
     __table_args__ = (
         PrimaryKeyConstraint("result_id", "sample_id"),
     )
@@ -86,7 +77,7 @@ class EResult(db.Model):
     __tablename__ = "EResult"
     result_id = db.Column(db.Integer, nullable=False)
     epoch_num = db.Column(db.Integer, nullable=False)
-    results = db.Column(db.String(256), nullable=False)
+    results = db.Column(db.String(1024), nullable=False)
     # json {"train": {"loss": ***, "accuracy": ***, "f1": ***}, "valid": {***}}
     __table_args__ = (
         PrimaryKeyConstraint("result_id", "epoch_num"),
@@ -165,35 +156,13 @@ class Feature(db.Model):
         db.UniqueConstraint('dataset_name', 'feature_name', 'feature_T', 'feature_A', 'feature_V', name='ix_dataset_feature_T_A_V',),
     )
 
-
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--mode', type=str, default='create')
-    return parser.parse_args()
-
-
-ALL_TABLES = {
-    'Dsample': Dsample,
-    'Result': Result,
-    'SResults': SResults,
-    'EResult': EResult,
-    'Task': Task,
-    'User': User,
-    'Annotation': Annotation,
-    'Feature': Feature,
-}
-
-
-if __name__ == '__main__':
-    arg = parse_args()
-    if arg.mode == "all" or arg.mode == "drop":
-        # clear tmp dir
-        if os.path.exists(MODEL_TMP_SAVE):
-            shutil.rmtree(MODEL_TMP_SAVE)
-        db.drop_all()
-    if arg.mode == "all" or arg.mode == "create":
-        db.create_all()
-        # db.session.execute("""
-        #     INSERT INTO `User` (`user_name`, `password`, `is_admin`) VALUES ('admin', SHA1('m-sena'), 1);
-        # """)
-        db.session.commit()
+# ALL_TABLES = {
+#     'Dsample': Dsample,
+#     'Result': Result,
+#     'SResults': SResults,
+#     'EResult': EResult,
+#     'Task': Task,
+#     'User': User,
+#     'Annotation': Annotation,
+#     'Feature': Feature,
+# }
