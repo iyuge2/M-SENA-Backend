@@ -199,7 +199,7 @@ def start_extracting():
         if enable['video']:
             if tool['video'] == 'openface':
                 database['video'] = 'openface'
-                for item in ['action_units', 'gaze', 'head_pose', 'landmark_2D', 'landmark_3D', 'head_pose', 'pdmparams']:
+                for item in ['action_units', 'gaze', 'head_pose', 'landmark_2D', 'landmark_3D', 'pdmparams']:
                     if config['video']['args'][item]:
                         database['video'] += f'&{item}'
             else:

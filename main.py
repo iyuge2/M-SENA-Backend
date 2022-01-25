@@ -50,12 +50,14 @@ if __name__ == "app":
     logger = init_logger()
     logger.info("========================= Program Started =========================")
     run_http_server(DATASET_ROOT_DIR, DATASET_SERVER_PORT)
+    run_http_server(LIVE_TMP_PATH, LIVE_DEMO_PORT)
 
 if __name__ == "__main__":
     logger = init_logger()
     logger.info("========================= Program Started =========================")
     try:
         run_http_server(DATASET_ROOT_DIR, DATASET_SERVER_PORT)
+        run_http_server(LIVE_TMP_PATH, LIVE_DEMO_PORT)
         logger.info(f"Starting WSGI Server on port {SERVER_PORT}...")
         web_server = WSGIServer(('0.0.0.0', SERVER_PORT), app)
         web_server.serve_forever()

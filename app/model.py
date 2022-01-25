@@ -38,8 +38,8 @@ def train_model():
         data = json.loads(request.get_data())
 
         payload = Task(
-            dataset_name=data['dataset'],
-            model_name=data['model'],
+            dataset_name=data['dataset'].lower(),
+            model_name=data['model'].lower(),
             task_type=2 if data['isTune'] else 1,
             task_pid=10000,
             state=0
@@ -55,8 +55,8 @@ def train_model():
             'db_url': DATABASE_URL,
             # use default parameters if not in advanced mode
             'parameters': data['args'] if data['advanced'] else '',
-            'model_name': data['model'],
-            'dataset_name': data['dataset'],
+            'model_name': data['model'].lower(),
+            'dataset_name': data['dataset'].lower(),
             'is_tune': data['isTune'],
             'tune_times': data['tuneTimes'],
             'feature_T': data['featureT'],
@@ -84,8 +84,8 @@ def get_args():
     logger.debug("API called: /modelEnd/getArgs")
     try:
         requests = json.loads(request.get_data())
-        model_name = requests['model']
-        dataset_name = requests['dataset']
+        model_name = requests['model'].lower()
+        dataset_name = requests['dataset'].lower()
         is_tune = requests['isTune']
         if is_tune:
             args = get_config_tune(model_name=model_name, dataset_name=dataset_name, random_choice=False)

@@ -18,13 +18,13 @@ ERROR_CODE = 4040
 DATASET_ROOT_DIR = "/home/sharing/disk3/Datasets/MMSA-Standard"
 DATASET_SERVER_PORT = 8096
 DATASET_SERVER_IP = f"http://166.111.138.142:{DATASET_SERVER_PORT}"
+LIVE_DEMO_PORT = 8097
+LIVE_DEMO_SERVER_IP = f"http://166.111.138.142:{LIVE_DEMO_PORT}"
 MAX_ARGS_LEN = 2048 # max len of args column in Result table
 SQL_MAX_TEXT_LEN = 1024 # max len of text column in Dsample table
 
-# MODEL-END
-
 
 # limit sequence length
-MAX_TEXT_SEQ_LEN = 20
-MAX_VIDEO_SEQ_LEN = 50
-MAX_AUDIO_SEQ_LEN = 50
+# MAX_TEXT_SEQ_LEN = 20
+# MAX_VIDEO_SEQ_LEN = 50
+# MAX_AUDIO_SEQ_LEN = 50

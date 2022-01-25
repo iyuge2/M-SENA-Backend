@@ -2,19 +2,24 @@ import json
 import logging
 import os
 import pickle
-import shutil
 import time
 from glob import glob
 from pathlib import Path
 
+import ffmpeg
+import librosa
+import librosa.display
+import matplotlib.pyplot as plt
+import numpy as np
 from config.constants import *
 from database import Dsample, EResult, Result, SResults
 from flask import request
+from MMSA import DEMO_run
+from MSA_FET import FeatureExtractionTool, get_default_config
 from pytz import timezone
 from sqlalchemy import and_, asc
 
 from app import app, db
-from app.user import check_token
 
 logger = logging.getLogger('app')
 
@@ -268,31 +273,61 @@ def get_live_results():
         working_dir = os.path.join(LIVE_TMP_PATH, msc)
         Path(working_dir).mkdir(exist_ok=False)
         # save video
-        with open(os.path.join(working_dir, "live.mp4"), "wb") as vid:
+        filename_raw = os.path.join(working_dir, "live_raw.mp4")
+        with open(filename_raw, "wb") as vid:
             video_stream = request.files['recorded'].stream.read()
             # video_stream = request.form['video'].stream.read()
             vid.write(video_stream)
-        # load other params
-        pre_trained_models = request.form['model'].split(',')
-        results = {k: [] for k in "MTAV"}
-        for pre_trained_model in pre_trained_models:
-            model_name, dataset_name = pre_trained_model.split('-')[0:2]
-            other_args = {
-                'pre_trained_model': pre_trained_model + '.pth',
-                'modelName': model_name,
-                'datasetName': dataset_name,
-                'live_working_dir': working_dir,
-                'transcript': request.form['transcript'],
-                'language': request.form['language']
-            }
-            # cur_results = run_live(other_args)
-            for k, v in cur_results.items():
-                v['model'] = pre_trained_model
-                results[k].append(v)
+        # # convert video to standard .h264
+        # filename = str(Path(filename_raw).with_stem('live'))
+        # ffmpeg.input(filename_raw).\
+        #     output(filename, vcodec='libx264').\
+        #     run(overwrite_output=True)
+        language = request.form['language']
+        # extract feature
+        text = request.form['transcript']
+        text_file = os.path.join(working_dir, "live_text.txt")
+        with open(text_file, "w") as f:
+            f.write(text)
+        config = get_default_config("bert+opensmile+openface")
+        config['video']['args']['tracked'] = True
+        feature_file = os.path.join(working_dir, "feature.pkl")
+        fet = FeatureExtractionTool(config, tmp_dir=working_dir)
+        fet.run_single(filename_raw, feature_file, text_file)
+        # visualization
+        tracked_video = os.path.join(working_dir, msc + ".avi")
+        return_mp4 = str(Path(tracked_video).with_suffix('.mp4'))
+        ffmpeg.input(tracked_video).filter('setpts', '3*PTS').output(return_mp4, vcodec='libx264').run(overwrite_output=True, quiet=True)
+        assert Path(tracked_video).is_file(), "Tracking Failed"
+        return_mp4 = os.path.join(LIVE_DEMO_SERVER_IP, Path(return_mp4).relative_to(LIVE_TMP_PATH))
+        y, sr = librosa.load(os.path.join(working_dir, 'tmp_audio.wav'))
+        D = librosa.stft(y)
+        S_db = librosa.amplitude_to_db(np.abs(D), ref=np.max)
+        fig, ax = plt.subplots()
+        img = librosa.display.specshow(S_db, x_axis='time', y_axis='linear', ax=ax)
+        ax.set(title='')
+        fig.colorbar(img, ax=ax, format="%+2.f dB")
+        return_png = os.path.join(working_dir, "spectrogram.png")
+        plt.savefig(return_png)
+        return_png = os.path.join(LIVE_DEMO_SERVER_IP, Path(return_png).relative_to(LIVE_TMP_PATH))
+        trained_models = request.form['model'].split(',')
+        results = []
+        for pre_trained_model in trained_models:
+            model_name, dataset_name, result_id = pre_trained_model.split('-')
+            result = DEMO_run(
+                db_url=DATABASE_URL,
+                feature_file=feature_file,
+                model_name=model_name,
+                dataset_name=dataset_name,
+                result_id=result_id,
+                working_dir=working_dir,
+                seed=1111
+            )
+            results.append({'model': model_name, 'prediction': float(result)})
     except Exception as e:
         logger.exception(e)
         return {"code": ERROR_CODE, "msg": str(e)}
-    finally:
-        if os.path.exists(working_dir):
-            shutil.rmtree(working_dir)
-    return {"code": SUCCESS_CODE, "msg": "success", "result": results}
+    # finally:
+    #     if os.path.exists(working_dir):
+    #         shutil.rmtree(working_dir)
+    return {"code": SUCCESS_CODE, "msg": "success", "result": results, 'video': return_mp4, 'audio': return_png}
