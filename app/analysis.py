@@ -320,10 +320,9 @@ def get_live_results():
                 model_name=model_name,
                 dataset_name=dataset_name,
                 result_id=result_id,
-                working_dir=working_dir,
                 seed=1111
             )
-            results.append({'model': model_name, 'prediction': float(result)})
+            results.append({'model': model_name, 'prediction': result})
     except Exception as e:
         logger.exception(e)
         return {"code": ERROR_CODE, "msg": str(e)}

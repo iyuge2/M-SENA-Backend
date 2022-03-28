@@ -19,5 +19,5 @@ transformers>=4.12.2
 pycryptodome>=3.10.1
 # baidu-aip
 # torchsnooper
-facenet_pytorch==0.4.0
+# facenet_pytorch==0.4.0
 openpyxl>=3.0.9

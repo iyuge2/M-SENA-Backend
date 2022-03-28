@@ -315,27 +315,35 @@ def get_all_progress():
         label_M = []
         res_users = db.session.query(Annotation.user_name).distinct().all()
         for row in res_users:
-            users.append(row.user_name)
-            label_T.append(db.session.query(Annotation).filter(and_(
-                Annotation.user_name == row.user_name,
-                Annotation.dataset_name == dataset_name,
-                Annotation.label_T != None,
-            )).count())
-            label_A.append(db.session.query(Annotation).filter(and_(
-                Annotation.user_name == row.user_name,
-                Annotation.dataset_name == dataset_name,
-                Annotation.label_A != None,
-            )).count())
-            label_V.append(db.session.query(Annotation).filter(and_(
-                Annotation.user_name == row.user_name,
-                Annotation.dataset_name == dataset_name,
-                Annotation.label_V != None,
-            )).count())
-            label_M.append(db.session.query(Annotation).filter(and_(
-                Annotation.user_name == row.user_name,
-                Annotation.dataset_name == dataset_name,
-                Annotation.label_M != None,
-            )).count())
+            # check if assigned
+            assigned = db.session.query(Annotation).filter(
+                and_(
+                    Annotation.user_name == row.user_name,
+                    Annotation.dataset_name == dataset_name,
+                    )
+                ).count()
+            if assigned > 0:
+                users.append(row.user_name)
+                label_T.append(db.session.query(Annotation).filter(and_(
+                    Annotation.user_name == row.user_name,
+                    Annotation.dataset_name == dataset_name,
+                    Annotation.label_T != None,
+                )).count())
+                label_A.append(db.session.query(Annotation).filter(and_(
+                    Annotation.user_name == row.user_name,
+                    Annotation.dataset_name == dataset_name,
+                    Annotation.label_A != None,
+                )).count())
+                label_V.append(db.session.query(Annotation).filter(and_(
+                    Annotation.user_name == row.user_name,
+                    Annotation.dataset_name == dataset_name,
+                    Annotation.label_V != None,
+                )).count())
+                label_M.append(db.session.query(Annotation).filter(and_(
+                    Annotation.user_name == row.user_name,
+                    Annotation.dataset_name == dataset_name,
+                    Annotation.label_M != None,
+                )).count())
         
         data = {
             'users': users,
