@@ -1,6 +1,7 @@
 import logging
 import multiprocessing
 import os
+import time
 from http.server import CGIHTTPRequestHandler, HTTPServer
 
 from config.constants import DATASET_ROOT_DIR, DATASET_SERVER_PORT
@@ -13,6 +14,9 @@ def http_server(path, port):
         server_address = ("",port) # 设置服务器地址
         server_obj = HTTPServer(server_address,CGIHTTPRequestHandler) # 创建服务器对象
         server_obj.serve_forever() # 启动服务器
+    except BlockingIOError as e:
+        logger.error(f"BlockingIOError: {e}")
+        time.sleep(1)
     except KeyboardInterrupt:
         logger.info(f"Stopping Media Server...")
         server_obj.socket.close()
